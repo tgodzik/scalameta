@@ -579,7 +579,7 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
   }
 
   private def inlineDefOrOpaque(token: Token): Boolean = {
-    (token.text == "inline" && (token.next.is[KwDef] || token.next.is[KwVal])) ||
+    (token.text == "inline" && (DclIntro.unapply(token) || Modifier.unapply(token))) ||
     (token.text == "opaque" && token.next.is[KwType])
   }
 
@@ -632,6 +632,19 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
       (isSoftKw(token, SoftKeyword.SkOpaque) && dialect.allowOpaqueTypes) ||
       (isSoftKw(token, SoftKeyword.SkOpen) && dialect.allowOpenClass) ||
       (token.is[Ident] && token.syntax == "inline" && dialect.allowInlineMods)
+    }
+  }
+
+  @classifier
+  trait SoftModifierIdent {
+    private def noIdentAhead() =
+      ahead(
+        token.isNot[Ident] && !DclIntro.unapply(token) && !Modifier.unapply(token)
+      )
+
+    def unapply(token: Token): Boolean = {
+      (token
+        .is[Ident] && token.syntax == "inline" && dialect.allowInlineMods) && noIdentAhead()
     }
   }
 
@@ -2756,6 +2769,7 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
           token.is[Subtype] || token.is[Supertype] || token.is[Viewbound]
       )
     def loop(mods: List[Mod]): List[Mod] = token match {
+      case SoftModifierIdent() => mods
       case Unquote() => if (continueLoop) mods else loop(appendMod(mods, modifier()))
       case Ellipsis(_) => loop(appendMod(mods, modifier()))
       case Modifier() => loop(appendMod(mods, modifier()))
@@ -2763,6 +2777,15 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
       case _ => mods
     }
     loop(Nil)
+  }
+
+  def methodParamModifiers(): List[Mod] = {
+    if (token
+        .is[Ident] && token.text == "inline" && dialect.allowInlineMods && ahead(token.is[Ident])) {
+      List(modifier())
+    } else {
+      Nil
+    }
   }
 
   def localModifiers(): List[Mod] = modifiers(isLocal = true)
@@ -2861,22 +2884,9 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
       rejectMod[Mod.Sealed](mods, "`sealed' modifier can be used only for classes")
       if (!mods.has[Mod.Override])
         rejectMod[Mod.Abstract](mods, Messages.InvalidAbstract)
+    } else {
+      mods ++= methodParamModifiers()
     }
-
-    // we haven't parsed modifiers earlier but current token looks like inline modifier
-    if (token
-        .is[Ident] && token.text == "inline" && dialect.allowInlineMods && ahead(token.is[Ident])) {
-      mods ++= List(modifier())
-    }
-
-    val inlineMod = mods.find(_.is[Mod.Inline])
-
-    // if we parsed modifiers but we ended up with no token for termName
-    // then we parsed inline as modifier but should be used as termName
-    val tname: Option[Term.Name] = if (inlineMod.isDefined && !token.is[Ident]) {
-      mods = mods.filterNot(_.is[Mod.Inline])
-      Some(inlineToTermName(inlineMod.get))
-    } else { None }
 
     val (isValParam, isVarParam) = (ownerIsType && token.is[KwVal], ownerIsType && token.is[KwVar])
     if (isValParam) {
@@ -2895,7 +2905,7 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
           anonymousUsing = true
           meta.Name.Anonymous()
         } else {
-          tname.getOrElse(termName()) match {
+          termName() match {
             case q: Quasi => q.become[Name.Quasi]
             case other => other
           }

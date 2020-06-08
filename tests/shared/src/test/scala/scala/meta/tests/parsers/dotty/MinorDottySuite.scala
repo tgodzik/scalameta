@@ -235,7 +235,7 @@ class MinorDottySuite extends BaseDottySuite {
 
   test("inline-def-object") {
     runTestAssert[Source](
-      "object X { inline def f(inline sc: Str)(inline args: Any*): String = ??? }"
+      "object X { inline protected def f(inline sc: Str)(inline args: Any*): String = ??? }"
     )(
       Source(
         List(
@@ -245,7 +245,7 @@ class MinorDottySuite extends BaseDottySuite {
             tpl(
               List(
                 Defn.Def(
-                  List(Mod.Inline()),
+                  List(Mod.Inline(), Mod.Protected(Name(""))),
                   tname("f"),
                   Nil,
                   List(
