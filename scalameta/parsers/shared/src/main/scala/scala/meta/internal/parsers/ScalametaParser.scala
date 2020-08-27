@@ -1771,19 +1771,21 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
     autoPos(token match {
       case KwIf() =>
         next()
-        val (cond, thenp) = if (token.isNot[LeftParen] && dialect.allowSignificantIndentation) {
+        val (cond, thenp, isThen) = if (token.isNot[LeftParen] && dialect.allowSignificantIndentation) {
           val cond = expr()
           acceptOpt[LF]
+          
           accept[KwThen]
-          (cond, exprMaybeIndented())
+          (cond, exprMaybeIndented(), true)
         } else {
           val cond = condExpr()
           newLinesOpt()
+          val isThen = token.is[KwThen]
           acceptOpt[KwThen]
-          (cond, exprMaybeIndented())
+          (cond, exprMaybeIndented(), isThen)
         }
 
-        if (token.is[KwElse] || (token.is[LF] && ahead(token.is[KwElse]))) {
+        val ifClause = if (token.is[KwElse] || (token.is[LF] && ahead(token.is[KwElse]))) {
           next()
           if (token.is[KwElse]) next()
           Term.If(cond, thenp, exprMaybeIndented())
@@ -1792,6 +1794,8 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
         } else {
           Term.If(cond, thenp, atPos(in.tokenPos, in.prevTokenPos)(Lit.Unit()))
         }
+        ifClause.setIfThen(isThen)
+        ifClause
       case KwTry() =>
         next()
         val body: Term = token match {
@@ -2471,7 +2475,7 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
   }
 
   def indentedBlock(): Term = autoPos {
-    Term.IndentedBlock(blockStatSeq())
+    Term.Block(blockStatSeq())
   }
 
   def block(): Term = autoPos {

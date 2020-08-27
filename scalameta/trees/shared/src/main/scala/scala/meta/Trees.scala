@@ -6,6 +6,7 @@ import scala.meta.inputs._
 import scala.meta.tokens._
 import scala.meta.prettyprinters._
 import scala.meta.internal.trees._
+import scala.meta.internal.trees.Metadata.binaryCompatField
 
 @root trait Tree extends InternalTree {
   def parent: Option[Tree]
@@ -103,11 +104,11 @@ object Term {
   @ast class Block(stats: List[Stat]) extends Term {
     checkFields(stats.forall(_.isBlockStat))
   }
-  @ast class IndentedBlock(stats: List[Stat]) extends Term {
-    checkFields(stats.forall(_.isBlockStat))
-  }
   @ast class EndMarker(name: Term.Name) extends Term
-  @ast class If(cond: Term, thenp: Term, elsep: Term) extends Term
+  @ast class If(cond: Term, thenp: Term, elsep: Term) extends Term{
+    @binaryCompatField
+    private var ifThen: Boolean = false
+  }
   @ast class QuotedMacroExpr(body: Term) extends Term
   @ast class QuotedMacroType(tpe: Type) extends Term
   @ast class SplicedMacroExpr(body: Term) extends Term

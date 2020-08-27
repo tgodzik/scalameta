@@ -75,8 +75,32 @@ class AstNamerMacros(val c: Context) extends AstReflection with CommonNamerMacro
           case ddef: DefDef => !isQuasi && ddef.name == TermName("copy"); case _ => false
         })
         val (imports, rest3) = rest2.partition(_ match { case _: Import => true; case _ => false })
-        stats1 ++= defns
+
+        val (binaryCompatFields, otherDefns) = defns.partition(tree =>
+          tree match {
+            case vr: ValDef
+                if vr.mods.hasFlag(PRIVATE) && vr.mods.annotations
+                  .exists(_.toString.contains("binaryCompatField")) =>
+              true
+            case _ => false
+          }
+        )
+        
+        val withGettersSetters = binaryCompatFields.flatMap {
+          case vr: ValDef =>
+            val getName = TermName(s"get${vr.name.toString().capitalize}")
+            val setName = TermName(s"set${vr.name.toString().capitalize}")
+            List(
+              q"def $getName = this.${vr.name} ",
+              q"def $setName(${vr.name} : ${vr.tpt}) = this.${vr.name} = this.${vr.name} ",
+              vr
+            )
+        }
+
+        stats1 ++= otherDefns
         stats1 ++= imports
+        istats1 ++= withGettersSetters
+
         var (fieldChecks, rest4) = rest3.partition(_ match {
           case q"checkFields($what)" => true; case _ => false
         })

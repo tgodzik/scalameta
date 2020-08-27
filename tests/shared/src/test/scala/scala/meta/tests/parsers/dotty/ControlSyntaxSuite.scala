@@ -27,7 +27,7 @@ class ControlSyntaxSuite extends BaseDottySuite {
                   |  gx
                   |""".stripMargin
     runTestAssert[Stat](code, assertLayout = None)(
-      Term.If(Term.Name("cond"), Term.Name("fx"), Term.IndentedBlock(List(Term.Name("gx"))))
+      Term.If(Term.Name("cond"), Term.Name("fx"), Term.Block(List(Term.Name("gx"))))
     )
   }
 
@@ -72,8 +72,8 @@ class ControlSyntaxSuite extends BaseDottySuite {
     runTestAssert[Stat](code, assertLayout = None)(
       Term.If(
         Term.Name("cond"),
-        Term.IndentedBlock(List(Term.Name("fx"))),
-        Term.IndentedBlock(List(Term.Name("gx")))
+        Term.Block(List(Term.Name("fx"))),
+        Term.Block(List(Term.Name("gx")))
       )
     )
   }
@@ -89,8 +89,8 @@ class ControlSyntaxSuite extends BaseDottySuite {
     runTestAssert[Stat](code, assertLayout = None)(
       Term.If(
         Term.Name("cond"),
-        Term.IndentedBlock(List(Term.Name("fx1"), Term.Name("fx2"))),
-        Term.IndentedBlock(List(Term.Name("gx1"), Term.Name("gx2")))
+        Term.Block(List(Term.Name("fx1"), Term.Name("fx2"))),
+        Term.Block(List(Term.Name("gx1"), Term.Name("gx2")))
       )
     )
   }
@@ -116,9 +116,9 @@ class ControlSyntaxSuite extends BaseDottySuite {
                   |""".stripMargin
     runTestAssert[Stat](code, assertLayout = None)(
       Term.Try(
-        Term.IndentedBlock(List(Term.Name("fx"))),
+        Term.Block(List(Term.Name("fx"))),
         Nil,
-        Some(Term.IndentedBlock(List(Term.Name("ok"))))
+        Some(Term.Block(List(Term.Name("ok"))))
       )
     )
   }
@@ -133,9 +133,9 @@ class ControlSyntaxSuite extends BaseDottySuite {
                   |""".stripMargin
     runTestAssert[Stat](code, assertLayout = None)(
       Term.Try(
-        Term.IndentedBlock(List(Term.Name("fx"), Term.Name("fy"))),
+        Term.Block(List(Term.Name("fx"), Term.Name("fy"))),
         Nil,
-        Some(Term.IndentedBlock(List(Term.Name("ok1"), Term.Name("ok2"))))
+        Some(Term.Block(List(Term.Name("ok1"), Term.Name("ok2"))))
       )
     )
   }
@@ -157,7 +157,7 @@ class ControlSyntaxSuite extends BaseDottySuite {
                   |""".stripMargin
     runTestAssert[Stat](code, assertLayout = None)(
       Term.Try(
-        Term.IndentedBlock(List(Term.Name("fx"), Term.Name("fy"))),
+        Term.Block(List(Term.Name("fx"), Term.Name("fy"))),
         List(Case(Pat.Var(Term.Name("x")), None, Term.Block(Nil))),
         None
       )
@@ -281,7 +281,7 @@ class ControlSyntaxSuite extends BaseDottySuite {
           Enumerator
             .CaseGenerator(Pat.Typed(Pat.Var(Term.Name("a")), Type.Name("TP")), Term.Name("iter"))
         ),
-        Term.IndentedBlock(List(Term.Name("echo")))
+        Term.Block(List(Term.Name("echo")))
       )
     )
   }
@@ -300,7 +300,7 @@ class ControlSyntaxSuite extends BaseDottySuite {
           Enumerator.Generator(Pat.Var(Term.Name("a")), Term.Name("x")),
           Enumerator.Generator(Pat.Var(Term.Name("b")), Term.Name("y"))
         ),
-        Term.IndentedBlock(List(Term.Name("fx"), Term.Name("fy")))
+        Term.Block(List(Term.Name("fx"), Term.Name("fy")))
       )
     )
   }
@@ -352,7 +352,7 @@ class ControlSyntaxSuite extends BaseDottySuite {
                   |  fy
                   |""".stripMargin
     runTestAssert[Stat](code, assertLayout = Some(code))(
-      Term.While(Term.Name("cond"), Term.IndentedBlock(List(Term.Name("fx"), Term.Name("fy"))))
+      Term.While(Term.Name("cond"), Term.Block(List(Term.Name("fx"), Term.Name("fy"))))
     )
   }
 

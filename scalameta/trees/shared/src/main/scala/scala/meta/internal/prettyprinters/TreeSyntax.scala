@@ -20,7 +20,7 @@ import org.scalameta.adt._
 import org.scalameta.invariants._
 import org.scalameta.unreachable
 import scala.compat.Platform.EOL
-import scala.meta.Term.IndentedBlock
+import scala.meta.tokens.Token
 
 object TreeSyntax {
   private final object SyntaxInstances {
@@ -275,6 +275,17 @@ object TreeSyntax {
         case _ => cantBeWrittenWithoutBackquotes(t)
       }
     }
+    def startsWithBrace(t: Term) = {
+      t.tokens
+        .find { token =>
+          println(token.getClass())
+          token.pos.start > t.pos.start && !token.is[Token.Space] && !token
+            .is[Token.Tab] && !token.is[Token.LF]
+        }
+        .find(a => a.isInstanceOf[Token.LeftBrace])
+        .isDefined
+    }
+
     def guessIsPostfix(t: Term.Select): Boolean = false
     def guessHasExpr(t: Term.Return): Boolean = t.expr match {
       case Lit.Unit() => false; case _ => true
@@ -412,11 +423,11 @@ object TreeSyntax {
       case t: Term.Ascribe => m(Expr1, s(p(PostfixExpr, t.expr), kw(":"), " ", t.tpe))
       case t: Term.Annotate => m(Expr1, s(p(PostfixExpr, t.expr), kw(":"), " ", t.annots))
       case t: Term.Tuple => m(SimpleExpr1, s("(", r(t.args, ", "), ")"))
-      case t: Term.IndentedBlock =>
-        import Term.{Block, IndentedBlock, Function}
+      case t: Term.Block if !startsWithBrace(t) =>
+        import Term.{Block, Function}
         def pstats(s: List[Stat]) = r(s.map(i(_)), "")
         t match {
-          case IndentedBlock(
+          case Block(
                 Function(Term.Param(mods, name: Term.Name, tptopt, _) :: Nil, Block(stats)) :: Nil
               ) if mods.exists(_.is[Mod.Implicit]) =>
             m(
@@ -434,15 +445,15 @@ object TreeSyntax {
                 n("}")
               )
             )
-          case IndentedBlock(
+          case Block(
                 Function(Term.Param(mods, name: Term.Name, None, _) :: Nil, Block(stats)) :: Nil
               ) =>
             m(SimpleExpr, s("{ ", name, " ", kw("=>"), " ", pstats(stats), n("}")))
-          case IndentedBlock(
+          case Block(
                 Function(Term.Param(_, _: Name.Anonymous, _, _) :: Nil, Block(stats)) :: Nil
               ) =>
             m(SimpleExpr, s("{ ", kw("_"), " ", kw("=>"), " ", pstats(stats), n("}")))
-          case IndentedBlock(Function(params, Block(stats)) :: Nil) =>
+          case Block(Function(params, Block(stats)) :: Nil) =>
             m(SimpleExpr, s("{ (", r(params, ", "), ") => ", pstats(stats), n("}")))
           case _ =>
             m(SimpleExpr, if (t.stats.isEmpty) i("") else pstats(t.stats), n(""))
@@ -484,14 +495,14 @@ object TreeSyntax {
             m(SimpleExpr, if (t.stats.isEmpty) s("{}") else s("{", pstats(t.stats), n("}")))
         }
       case t: Term.If =>
-        if (t.thenp.is[IndentedBlock]) {
+        if (t.getIfThen) {
           m(
             Expr1,
             s(
               kw("if"),
               " ",
               t.cond,
-              n("then"),
+              n("then "),
               p(Expr, t.thenp),
               if (guessHasElsep(t)) s(" ", kw("else"), " ", p(Expr, t.elsep)) else s()
             )
@@ -592,7 +603,7 @@ object TreeSyntax {
       case t: Type.Macro => m(SimpleTyp, s(t.body))
       case t: Term.PartialFunction => m(SimpleExpr, s("{", r(t.cases.map(i(_)), ""), n("}")))
       case t: Term.While =>
-        if (t.body.is[Term.IndentedBlock]) {
+        if (false) { // TODO the same as with if
           m(Expr1, s(kw("while"), " ", t.expr, n("do"), p(Expr, t.body)))
         } else {
           m(Expr1, s(kw("while"), " (", t.expr, ") ", p(Expr, t.body)))
@@ -600,13 +611,13 @@ object TreeSyntax {
       case t: Term.Do =>
         m(Expr1, s(kw("do"), " ", p(Expr, t.body), " ", kw("while"), " (", t.expr, ")"))
       case t: Term.For =>
-        if (t.body.is[Term.IndentedBlock]) {
+        if (false) {
           m(Expr1, s(kw("for"), " (", r(t.enums, "; "), ") ", n("do"), t.body))
         } else {
           m(Expr1, s(kw("for"), " (", r(t.enums, "; "), ") ", t.body))
         }
       case t: Term.ForYield =>
-        if (t.body.is[Term.IndentedBlock]) {
+        if (false) { // TODO the same as with if
           m(Expr1, s(kw("for"), n(""), r(t.enums.map(i(_))), n(""), kw("yield"), n(""), t.body))
         } else {
           m(Expr1, s(kw("for"), " (", r(t.enums, "; "), ") ", kw("yield"), " ", t.body))
