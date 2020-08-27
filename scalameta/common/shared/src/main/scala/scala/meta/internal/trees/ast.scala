@@ -76,30 +76,45 @@ class AstNamerMacros(val c: Context) extends AstReflection with CommonNamerMacro
         })
         val (imports, rest3) = rest2.partition(_ match { case _: Import => true; case _ => false })
 
-        val (binaryCompatFields, otherDefns) = defns.partition(tree =>
+        def setterName(vr: ValDef) = TermName(s"set${vr.name.toString().capitalize}")
+        def getterName(vr: ValDef) = TermName(s"get${vr.name.toString().capitalize}")
+
+        val (binaryCompatVars, otherDefns) = defns.partition(tree =>
           tree match {
             case vr: ValDef
-                if vr.mods.hasFlag(PRIVATE) && vr.mods.annotations
+                if vr.mods.annotations
                   .exists(_.toString.contains("binaryCompatField")) =>
+              if (!vr.mods.hasFlag(PRIVATE))
+                c.abort(vr.pos, "The binaryCompat AST field needs to be private")
+              if (!vr.mods.hasFlag(MUTABLE))
+                c.abort(vr.pos, "The binaryCompat AST field needs to a variable")
               true
             case _ => false
           }
         )
-        
-        val withGettersSetters = binaryCompatFields.flatMap {
+
+        stats1 ++= otherDefns
+
+        val binaryCompatAbstractFields = binaryCompatVars.flatMap {
           case vr: ValDef =>
-            val getName = TermName(s"get${vr.name.toString().capitalize}")
-            val setName = TermName(s"set${vr.name.toString().capitalize}")
             List(
-              q"def $getName = this.${vr.name} ",
-              q"def $setName(${vr.name} : ${vr.tpt}) = this.${vr.name} = this.${vr.name} ",
+              q"def ${getterName(vr)}(): ${vr.tpt}",
+              q"def ${setterName(vr)}(${vr.name} : ${vr.tpt}) : Unit"
+            )
+        }
+        istats1 ++= binaryCompatAbstractFields
+
+        val binaryCompatStats = binaryCompatVars.flatMap {
+          case vr: ValDef =>
+            List(
+              q"def ${getterName(vr)}() = this.${vr.name} ",
+              q"def ${setterName(vr)}(${vr.name} : ${vr.tpt}) = this.${vr.name} = ${vr.name} ",
               vr
             )
         }
+        stats1 ++= binaryCompatStats
 
-        stats1 ++= otherDefns
         stats1 ++= imports
-        istats1 ++= withGettersSetters
 
         var (fieldChecks, rest4) = rest3.partition(_ match {
           case q"checkFields($what)" => true; case _ => false
@@ -168,6 +183,10 @@ class AstNamerMacros(val c: Context) extends AstReflection with CommonNamerMacro
         privateCopyBargs += q"prototype.asInstanceOf[$iname]"
         privateCopyBargs += q"parent"
         privateCopyBargs += q"origin"
+        val binaryCompatCopies = binaryCompatVars.collect {
+          case vr: ValDef =>
+            List(q"newAst.${setterName(vr)}(this.${vr.name});")
+        }
         val privateCopyArgs = paramss.map(
           _.map(p => q"$CommonTyperMacrosModule.initField(this.${internalize(p.name)})")
         )
@@ -188,7 +207,8 @@ class AstNamerMacros(val c: Context) extends AstReflection with CommonNamerMacro
           """
           }
         }
-        val privateCopyBody = q"new $name(..$privateCopyBargs)(...$privateCopyArgs)"
+        val privateCopyBody =
+          q"val newAst = new $name(..$privateCopyBargs)(...$privateCopyArgs); ..$binaryCompatCopies; newAst"
         stats1 += q"""
         private[meta] def privateCopy(
             prototype: $TreeClass = this,
@@ -345,7 +365,15 @@ class AstNamerMacros(val c: Context) extends AstReflection with CommonNamerMacro
           }
         """
         } else {
-          mstats1 += mkQuasi(iname, iparents, fieldParamss, "name", "value", "tpe")
+          mstats1 += mkQuasi(
+            iname,
+            iparents,
+            fieldParamss,
+            binaryCompatAbstractFields,
+            "name",
+            "value",
+            "tpe"
+          )
         }
 
         mstats1 += q"$mods1 class $name[..$tparams] $ctorMods(...${bparams1 +: paramss1}) extends { ..$earlydefns } with ..$parents1 { $self => ..$stats1 }"

@@ -495,6 +495,9 @@ object TreeSyntax {
             m(SimpleExpr, if (t.stats.isEmpty) s("{}") else s("{", pstats(t.stats), n("}")))
         }
       case t: Term.If =>
+
+        println("other: " + t.hashCode())
+        println(t.getIfThen)
         if (t.getIfThen) {
           m(
             Expr1,

@@ -63,7 +63,7 @@ class ControlSyntaxSuite extends BaseDottySuite {
     )
   }
 
-  test("new-if-else-single2") {
+  test("new-if-else-single2".only) {
     val code = """|if cond then
                   |  fx
                   |else 
