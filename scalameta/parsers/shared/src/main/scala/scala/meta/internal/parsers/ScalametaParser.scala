@@ -434,6 +434,27 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
           } else if (curr.is[RightArrow]) {
             if (!sepRegions.isEmpty && sepRegions.head == RegionArrow) sepRegions.tail
             else sepRegions
+          } else if (dialect.allowSignificantIndentation && curr.is[CanEndIndent]) {
+            /* Handles case as a last resort like:
+             * if a then
+             *  b()
+             *  else
+             *    c()
+             *
+             * `prev.is[ExprIntro]` is to make sure that it's not just an ending }
+             */
+            val lastRegionSameIndent = sepRegions.headOption.exists {
+              case RegionIndent(indent, _) => indent == currentIndent 
+              case _ => false
+            }
+
+            // println(scannerTokens().getClass())
+            if (lastRegionSameIndent) {
+              insertOutdent()
+              sepRegions.tail
+            } else {
+              sepRegions
+            }
           } else sepRegions // do nothing for other tokens
         }
 
@@ -506,6 +527,26 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
     val underlying = parserTokens.result
     (Tokens(underlying, 0, underlying.length), parserTokenPositions.result)
   }
+
+  private def isWhitespace(token: Token): Boolean = token.is[Space] || token.is[Tab]
+
+  // /**
+  //  * When token on `tokenPosition` is not a whitespace and is
+  //  * a first non-whitespace character in a current line then a result is
+  //  * a number of whitespace characters counted.
+  //  * Otherwise -1 is returned.
+  //  */
+  // private def findFirstLineTokenPos(tokenPosition: Int): Int = {
+    
+  //   @tailrec
+  //   def loop(pos: Int, acc: Int = tokenPosition): Int = {
+  //     if (pos <= 0 || scannerTokens(pos).is[LF]) acc
+  //     else if (!isWhitespace(scannerTokens(pos))) loop(pos - 1, pos)
+  //     else loop(pos-1, acc)
+  //   }
+
+  //   loop(tokenPosition - 1)
+  // }
 
   /**
    * When token on `tokenPosition` is not a whitespace and is
@@ -626,7 +667,7 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
     val ret = body
     acceptOpt[LF]
     acceptOpt[LFLF]
-    accept[Indentation.Outdent]
+    accept[Indentation.Outdent]  
     ret
   }
 
@@ -880,13 +921,21 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
       (token.next.strictNext.is[LineEnd] || token.next.strictNext.is[EOF])
     }
   }
-  // then  else  do  catch  finally  yield  match
+
   @classifier
   trait CanContinueOnNextLine {
     def unapply(token: Token): Boolean = {
-      token.is[KwThen] || token.is[KwElse] || token.is[KwDo] || 
+      token.is[KwThen] || token.is[KwElse] || token.is[KwDo] ||
       token.is[KwCatch] || token.is[KwFinally] || token.is[KwYield] ||
       token.is[KwMatch]
+    }
+  }
+
+  @classifier
+  trait CanEndIndent {
+    def unapply(token: Token): Boolean = {
+      token.is[KwThen] || token.is[KwElse] || token.is[KwDo] ||
+      token.is[KwCatch] || token.is[KwFinally] || token.is[KwYield]
     }
   }
 
@@ -4659,7 +4708,7 @@ class ScalametaParser(input: Input, dialect: Dialect) { parser =>
         acceptStatSepOpt()
       } else if (token.is[ExprIntro]) {
         stats += stat(expr(location = BlockStat, allowRepeated = false))
-        if (!token.is[CaseDefEnd]) acceptStatSep()
+        if (!token.is[CaseDefEnd] && !token.is[CanEndIndent]) acceptStatSep()
       } else if (token.is[StatSep]) {
         next()
       } else if (token.is[Ellipsis]) {

@@ -102,10 +102,6 @@ class SignificantIndentationSuite extends BaseDottySuite {
   }
 
   test("then-no-indent") {
-    // this test is related to dotty issue: https://github.com/lampepfl/dotty/issues/9790
-    // It should either assert error during parsing: "illegal start of simple expression"
-    // Or accept mismatch with parsing rules and parse as 'if (cond) { truep } else {falsep }'
-    // Why error is thrown is described in mentioned issue.
     val code = """|def fn: Unit =
                   |    if cond then
                   |  truep
@@ -132,11 +128,111 @@ class SignificantIndentationSuite extends BaseDottySuite {
     )
   }
 
+  test("indent-braces-else") {
+    val code = """|def inlineInfo =
+                  |    if (true) {
+                  |      aa
+                  |    }
+                  |    else ""
+                  |""".stripMargin
+    runTestAssert[Stat](
+      code,
+      assertLayout = Some(
+        """|def inlineInfo = {
+           |  if (true) {
+           |    aa
+           |  } else ""
+           |}
+           |""".stripMargin
+      )
+    )(
+      Defn.Def(
+        Nil,
+        Term.Name("inlineInfo"),
+        Nil,
+        Nil,
+        None,
+        Term.Block(
+          List(Term.If(Lit.Boolean(true), Term.Block(List(Term.Name("aa"))), Lit.String("")))
+        )
+      )
+    )
+  }
+
+  test("then-indent-else") {
+    val code = """|def fn: Unit =
+                  |    if cond then
+                  |      truep
+                  |      else
+                  |        falsep
+                  |""".stripMargin
+    runTestAssert[Stat](
+      code,
+      assertLayout = Some(
+        """|def fn: Unit = {
+           |  if (cond) {
+           |    truep
+           |  } else {
+           |    falsep
+           |  }
+           |}
+           |""".stripMargin
+      )
+    )(
+      Defn.Def(
+        Nil,
+        Term.Name("fn"),
+        Nil,
+        Nil,
+        Some(Type.Name("Unit")),
+        Term.Block(
+          List(
+            Term.If(
+              Term.Name("cond"),
+              Term.Block(List(Term.Name("truep"))),
+              Term.Block(List(Term.Name("falsep")))
+            )
+          )
+        )
+      )
+    )
+  }
+
+  test("then-indent-expr-else") {
+    val code = """|val kind = if true then
+                  |    Kind.Implicit(a, b)
+                  |    else defaultKind
+                  |""".stripMargin
+    runTestAssert[Stat](
+      code,
+      assertLayout = Some(
+        """|val kind = if (true) {
+           |  Kind.Implicit(a, b)
+           |} else defaultKind
+           |""".stripMargin
+      )
+    )(
+      Defn.Val(
+        Nil,
+        List(Pat.Var(Term.Name("kind"))),
+        None,
+        Term.If(
+          Lit.Boolean(true),
+          Term.Block(
+            List(
+              Term.Apply(
+                Term.Select(Term.Name("Kind"), Term.Name("Implicit")),
+                List(Term.Name("a"), Term.Name("b"))
+              )
+            )
+          ),
+          Term.Name("defaultKind")
+        )
+      )
+    )
+  }
+
   test("then-no-indent-wrong") {
-    // this test is related to dotty issue: https://github.com/lampepfl/dotty/issues/9790
-    // It should either assert error during parsing: "illegal start of simple expression"
-    // Or accept mismatch with parsing rules and parse as 'if (cond) { truep } else {falsep }'
-    // Why error is thrown is described in mentioned issue.
     val code = """|def fn: Unit =
                   |    if cond then
                   |  truep1
