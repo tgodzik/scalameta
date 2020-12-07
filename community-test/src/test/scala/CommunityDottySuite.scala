@@ -21,23 +21,30 @@ class CommunityDottySuite extends FunSuite {
     if (!Files.exists(communityDirectory)) Files.createDirectory(communityDirectory)
 
     val folder = communityDirectory.resolve(build.name).toString
+    val checkout = build.commit.map(commit => s"&& git checkout $commit ").getOrElse("")
     if (!Files.exists(communityDirectory.resolve(build.name))) {
       val gclone = s"git clone ${build.giturl} ${folder}"
-      val gchangecommit = s"""sh -c "cd ${folder} && git checkout ${build.commit} " """
+      val gchangecommit = s"""sh -c "cd ${folder} $checkout" """
 
+      println(gchangecommit)
       val result: Int = (gclone #&& gchangecommit) !
 
       assert(clue(result) == 0, s"Fetching community build ${build.name} failed")
     } else {
       val gchangecommit =
-        s"""sh -c "cd ${folder} && git fetch origin && git checkout ${build.commit} " """
+        s"""sh -c "cd ${folder} && git fetch origin $checkout" """
       val result: Int = gchangecommit !
 
       assert(clue(result) == 0, s"Checking out community build ${build.name} failed")
     }
   }
 
-  case class CommunityBuild(giturl: String, commit: String, name: String, excluded: List[String])
+  case class CommunityBuild(
+      giturl: String,
+      commit: Option[String],
+      name: String,
+      excluded: List[String]
+  )
   case class TestStats(
       checkedFiles: Int,
       errors: Int,
@@ -61,17 +68,27 @@ class CommunityDottySuite extends FunSuite {
     CommunityBuild(
       "https://github.com/lampepfl/dotty.git",
       //commit hash from 01.12.2020
-      "42a30b8fec95487147fa0d575bfae3cfb9417617",
+      commit = Some("42a30b8fec95487147fa0d575bfae3cfb9417617"),
       "dotty",
       dottyExclusionList
     ),
     CommunityBuild(
       "https://github.com/scalameta/munit.git",
       // latest commit from 27.11.2020
-      "5f384b548960ee7731649f5f900eb1d854e7827a",
+      commit = Some("5f384b548960ee7731649f5f900eb1d854e7827a"),
       "munit",
       munitExclusionList
-    )
+    ),
+    CommunityBuild("https://github.com/dotty-staging/cats-mtl", None, "cats-mtl", Nil),
+    CommunityBuild("https://github.com/dotty-staging/coop", None, "coop", Nil),
+    CommunityBuild(
+      "https://github.com/dotty-staging/better-files",
+      None,
+      "betterfiles",
+      // extension is used not as keyword
+      List("core/src/main/scala/better/files/File.scala")
+    ),
+    CommunityBuild("https://github.com/dotty-staging/scalacheck", None, "scalacheck", Nil),
   )
 
   for (build <- communityBuilds) {
@@ -84,7 +101,7 @@ class CommunityDottySuite extends FunSuite {
     fetchCommunityBuild(build)
 
     val stats = checkFilesRecursive(communityDirectory.resolve(build.name))
-    val timePer1KLines = stats.timeTaken / (stats.linesParsed / 1000)
+    val timePer1KLines = stats.timeTaken / (stats.linesParsed / 1000.0)
 
     println("--------------------------")
     println(s"Files parsed correctly ${stats.checkedFiles}")
@@ -195,4 +212,115 @@ class CommunityDottySuite extends FunSuite {
     "/out/",
     "/language-server/src/dotty/"
   )
+
+
+  // def dottyCommunityBuilds = List(
+  //   CommunityBuild("https://github.com/dotty-staging/ScalaPB", None, "ScalaPB", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/scalatest", None, "scalatest", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/scalap", None, "scalap", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/minitest", None, "minitest", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/fastparse", None, "fastparse", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/stdLib213", None, "stdLib213", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/pdbp", None, "pdbp", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/sourcecode", None, "sourcecode", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/scala-xml", None, "scala-xml", Nil),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/shapeless",
+  //     Some(
+  //       "fb336168a597e159c4861434cf78d41bb76c630e"
+  //     ),
+  //     "",
+  //     Nil
+  //   ),
+  //   CommunityBuild("https://github.com/dotty-staging/xml-interpolator", None, "interpolator", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/effpi", None, "effpi", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/utest", None, "utest", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/os-lib", None, "os-lib", Nil),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/scalatestplus-scalacheck",
+  //     None,
+  //     "scalatestplus-scalacheck",
+  //     Nil
+  //   ),
+  //   CommunityBuild("https://github.com/dotty-staging/upickle", None, "upickle", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/sconfig", None, "sconfig", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/zio", None, "zio", Nil),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/scodec",
+  //     Some(
+  //       "f2190b4fc99393d6e7ba3220155991c119a5de4e"
+  //     ),
+  //     "scodec",
+  //     Nil
+  //   ),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/scodec-bits",
+  //     Some(
+  //       "b535556954f0c707f40dc36979c019f7b2f2e8be"
+  //     ),
+  //     "scodec-bits",
+  //     Nil
+  //   ),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/scala-parser-combinators",
+  //     None,
+  //     "combinators",
+  //     Nil
+  //   ),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/dotty-cps-async",
+  //     None,
+  //     "dotty-cps-async",
+  //     Nil
+  //   ),
+  //   CommunityBuild("https://github.com/dotty-staging/geny", None, "geny", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/scalaz", None, "", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/endpoints", None, "endpoints4s", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/scas", None, "scas", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/fansi", None, "fansi", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/PPrint", None, "PPrint", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/requests-scala", None, "requests-scala", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/cats-effect-2", None, "cats-effect-2", Nil),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/cats-effect-3",
+  //     Some(
+  //       "04155e429e230224e61235c4e4dd125419f82f7a"
+  //     ),
+  //     "cats-effect-3",
+  //     Nil
+  //   ),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/scala-parallel-collections",
+  //     None,
+  //     "scala-parallel-collections",
+  //     Nil
+  //   ),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/scala-collection-compat",
+  //     None,
+  //     "scala-collection-compat",
+  //     Nil
+  //   ),
+  //   CommunityBuild("https://github.com/dotty-staging/nanotest-strawman.git", None, "verify", Nil),
+  //   CommunityBuild("https://github.com/dotty-staging/discipline", None, "discipline", Nil),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/discipline-munit",
+  //     None,
+  //     "discipline-munit",
+  //     Nil
+  //   ),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/discipline-specs2",
+  //     None,
+  //     "discipline-specs2",
+  //     Nil
+  //   ),
+  //   CommunityBuild(
+  //     "https://github.com/dotty-staging/simulacrum-scalafix",
+  //     None,
+  //     "simulacrum-scalafix",
+  //     Nil
+  //   ),
+  //   CommunityBuild("https://github.com/dotty-staging/cats", None, "cats", Nil)
+  // )
 }
