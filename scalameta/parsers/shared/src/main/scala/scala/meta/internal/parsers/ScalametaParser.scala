@@ -2066,7 +2066,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       case KwTry() =>
         next()
         val body: Term = token match {
-          case Indentation.Indent() => block()
+          case Indentation.Indent() => autoPos(block())
           case _ if dialect.allowTryWithAnyExpr => expr()
           case LeftBrace() => autoPos(inBracesOrUnit(block()))
           case LeftParen() => inParensOrUnit(expr())
@@ -2111,7 +2111,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
           }
           Term.While(cond, body)
         } else if (token.is[Indentation.Indent]) {
-          val cond = block()
+          val cond = autoPos(block())
           acceptOpt[LF]
           accept[KwDo]
           Term.While(cond, exprMaybeIndented())
@@ -2321,7 +2321,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
               }
               val params = convertToParams(t)
               val trm =
-                if (token.is[Indentation.Indent]) block()
+                if (token.is[Indentation.Indent]) blockWithoutPos()
                 else if (location != BlockStat) expr()
                 else block()
               if (contextFunction)
@@ -2846,6 +2846,10 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
   }
 
   def block(): Term = autoPos {
+    blockWithoutPos()
+  }
+
+  def blockWithoutPos(): Term = {
     if (token.is[Indentation.Indent]) indented {
       val stats = blockStatSeq()
       stats match {
@@ -2853,7 +2857,9 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
         case others => Term.Block(others)
       }
     }
-    else Term.Block(blockStatSeq())
+    else {
+      Term.Block(blockStatSeq())
+    }
   }
 
   def caseClause(forceSingleExpr: Boolean = false): Case = atPos(in.prevTokenPos, auto) {

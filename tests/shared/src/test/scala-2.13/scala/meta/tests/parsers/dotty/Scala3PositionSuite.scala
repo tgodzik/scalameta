@@ -113,4 +113,28 @@ class Scala3PositionSuite extends BasePositionSuite(dialects.Scala3) {
   checkPositions[Type]("A & B")
   checkPositions[Type]("A | B")
 
+
+
+  checkPositions[Stat](
+    """|foo.fold(
+       |  err =>
+       |  {
+       |    a()
+       |    b()
+       |  })""".stripMargin,
+    """|Term.Select foo.fold
+       |Term.Function err =>
+       |  {
+       |    a()
+       |    b()
+       |  })
+       |Term.Param err
+       |Term.Block {
+       |    a()
+       |    b()
+       |  }
+       |Term.Apply a()
+       |Term.Apply b()
+       |""".stripMargin
+  )
 }
