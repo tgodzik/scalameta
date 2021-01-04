@@ -119,7 +119,9 @@ object Term {
   }
   @ast class Try(expr: Term, catchp: List[Case], finallyp: Option[Term]) extends Term
   @ast class TryWithHandler(expr: Term, catchp: Term, finallyp: Option[Term]) extends Term
-  @ast class ContextFunction(params: List[Term.Param], body: Term) extends Term {
+
+  @branch trait FunctionLike extends Term
+  @ast class ContextFunction(params: List[Term.Param], body: Term) extends FunctionLike {
     checkFields(
       params.forall(param =>
         param.is[Term.Param.Quasi] ||
@@ -127,7 +129,7 @@ object Term {
       )
     )
   }
-  @ast class Function(params: List[Term.Param], body: Term) extends Term {
+  @ast class Function(params: List[Term.Param], body: Term) extends FunctionLike {
     checkFields(
       params.forall(param =>
         param.is[Term.Param.Quasi] ||
