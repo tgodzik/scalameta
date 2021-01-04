@@ -1393,10 +1393,10 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
 
       if (allowFunctionType && token.is[RightArrow]) {
         next()
-        Type.Function(ts, typ())
+        Type.Function(ts, indentedTyp())
       } else if (allowFunctionType && token.is[ContextArrow]) {
         next()
-        Type.ContextFunction(ts, typ())
+        Type.ContextFunction(ts, indentedTyp())
       } else {
         val tuple = atPos(openParenPos, closeParenPos)(makeTupleType(ts map {
           case t: Type.ByName => syntaxError("by name type not allowed here", at = t)
@@ -1414,11 +1414,11 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       val quants = typeParamClauseOpt(ownerIsType = true, ctxBoundsAllowed = false)
       if (token.is[TypeLambdaArrow]) {
         accept[TypeLambdaArrow]
-        val tpe = typ()
+        val tpe = indentedTyp()
         Type.Lambda(quants, tpe)
       } else if (token.is[RightArrow]) {
         accept[RightArrow]
-        val tpe = typ()
+        val tpe = indentedTyp()
         if (tpe.is[Type.Function])
           Type.PolyFunction(quants, tpe)
         else if (tpe.is[Type.ContextFunction])
@@ -1430,14 +1430,22 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       }
     }
 
+    def indentedTyp(): Type = {
+      if (token.is[Indentation.Indent]) {
+        indented(typ())
+      } else {
+        typ()
+      }
+    }
+
     def typ(): Type = autoPos {
       val t: Type =
         if (token.is[LeftBracket] && dialect.allowTypeLambdas) typeLambdaOrPoly()
         else infixTypeOrTuple()
 
       token match {
-        case RightArrow() => next(); Type.Function(List(t), typ())
-        case ContextArrow() => next(); Type.ContextFunction(List(t), typ())
+        case RightArrow() => next(); Type.Function(List(t), indentedTyp())
+        case ContextArrow() => next(); Type.ContextFunction(List(t), indentedTyp())
         case KwForsome() => next(); Type.Existential(t, existentialStats())
         case KwMatch() if dialect.allowTypeMatch => next(); Type.Match(t, typeCaseClauses())
         case _ => t
@@ -1471,7 +1479,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       accept[KwCase]
       val pat = infixTypeOrTuple(allowFunctionType = false)
       accept[RightArrow]
-      val tpe = typ()
+      val tpe = indentedTyp()
       TypeCase(
         pat,
         tpe
@@ -4074,7 +4082,15 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
     val name = typeName()
     val tparams = typeParamClauseOpt(ownerIsType = true, ctxBoundsAllowed = false)
 
-    def aliasType() = Defn.Type(mods, name, tparams, typ())
+    def aliasType() = {
+      val tp =
+        if (token.is[Indentation.Indent])
+          indented(typ())
+        else
+          typ()
+      Defn.Type(mods, name, tparams, tp)
+    }
+
     def abstractType() = {
       val bounds = typeBounds()
       if (token.is[Equals]) {
