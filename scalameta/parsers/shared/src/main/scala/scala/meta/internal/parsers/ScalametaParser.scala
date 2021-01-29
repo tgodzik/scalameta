@@ -2775,12 +2775,12 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       case Dot() =>
         next()
         if (dialect.allowMatchAsOperator && token.is[KwMatch]) {
-          next()
-          val clause = matchClause(t)
+          val matchName = atPos(token.pos)(Term.Name("match"))
+          val selector = atPos(token.pos)(Term.Select(t,matchName))
+          accept[KwMatch]
           // needed if match uses significant identation
           newLineOptWhenFollowedBy[Dot]
-          val expr = simpleExprRest(clause, canApply = false)
-          expr
+          simpleExprRest(selector, canApply = true)
         } else {
           simpleExprRest(selector(t), canApply = true)
         }

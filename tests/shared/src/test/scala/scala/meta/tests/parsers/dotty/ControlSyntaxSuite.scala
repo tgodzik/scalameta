@@ -1530,7 +1530,7 @@ class ControlSyntaxSuite extends BaseDottySuite {
     )(expected)
   }
 
-  test("match-dot-def") {
+  test("match-dot-def".only) {
     val expected = Defn.Def(
       Nil,
       Term.Name("mtch"),
@@ -1539,11 +1539,15 @@ class ControlSyntaxSuite extends BaseDottySuite {
       Some(Type.Name("String")),
       Term.Apply(
         Term.Select(
-          Term.Match(
-            Term.Name("x"),
+          Term.Apply(
+            Term.Select(Term.Name("x"), Term.Name("match")),
             List(
-              Case(Lit.Int(1), None, Lit.String("1")),
-              Case(Pat.Wildcard(), None, Lit.String("ERR"))
+              Term.PartialFunction(
+                List(
+                  Case(Lit.Int(1), None, Lit.String("1")),
+                  Case(Pat.Wildcard(), None, Lit.String("ERR"))
+                )
+              )
             )
           ),
           Term.Name("trim")
