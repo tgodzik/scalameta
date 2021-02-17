@@ -156,11 +156,7 @@ class CommunityDottySuite extends FunSuite {
 
   final def dottyExclusionList = List(
     // [scalameta] erased modifier - for now used internally, will be available in 3.1
-    "library/src/scala/compiletime/package.scala",
-    // if then - else without outdentation before else.
-    // it's unclear what to do in this case
-    // https://github.com/lampepfl/dotty/issues/10372
-    "dotty/dokka/tasty/ClassLikeSupport.scala"
+    "library/src/scala/compiletime/package.scala"
   )
 
   final def munitExclusionList = List(
