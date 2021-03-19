@@ -1145,7 +1145,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       token.is[KwYield] || token.is[KwTry] || token.is[KwCatch] || token.is[KwFinally] ||
       token.is[KwMatch] || token.is[KwDo] || token.is[KwFor] || token.is[KwThen] ||
       token.is[KwElse] || token.is[Equals] || token.is[KwWhile] || token.is[KwIf] ||
-      token.is[RightArrow] || (token.is[KwWith] && token.next.is[DclIntro])
+      token.is[RightArrow] || token.is[KwReturn] || (token.is[KwWith] && token.next.is[DclIntro])
     }
   }
 

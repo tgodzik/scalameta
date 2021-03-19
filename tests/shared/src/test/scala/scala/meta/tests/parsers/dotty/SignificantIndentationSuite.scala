@@ -1144,4 +1144,70 @@ class SignificantIndentationSuite extends BaseDottySuite {
     )
 
   }
+
+  test("return-indent") {
+    runTestAssert[Stat](
+      """|def method =
+         |   return
+         |     val a = 2 + 3
+         |     a
+         |
+         |""".stripMargin,
+      assertLayout = Some(
+        """|def method = return {
+           |  val a = 2 + 3
+           |  a
+           |}
+           |""".stripMargin
+      )
+    )(
+      Defn.Def(
+        Nil,
+        Term.Name("method"),
+        Nil,
+        Nil,
+        None,
+        Term.Return(
+          Term.Block(
+            List(
+              Defn.Val(
+                Nil,
+                List(Pat.Var(Term.Name("a"))),
+                None,
+                Term.ApplyInfix(Lit.Int(2), Term.Name("+"), Nil, List(Lit.Int(3)))
+              ),
+              Term.Name("a")
+            )
+          )
+        )
+      )
+    )
+  }
+
+  test("return-single-indent") {
+    runTestAssert[Stat](
+      """|def method =
+         |   return
+         |     2 
+         |     + 3
+         |""".stripMargin,
+      assertLayout = Some(
+        """|def method = return {
+           |  2 + 3
+           |}
+           |""".stripMargin
+      )
+    )(
+      Defn.Def(
+        Nil,
+        Term.Name("method"),
+        Nil,
+        Nil,
+        None,
+        Term.Return(
+          Term.Block(List(Term.ApplyInfix(Lit.Int(2), Term.Name("+"), Nil, List(Lit.Int(3)))))
+        )
+      )
+    )
+  }
 }
