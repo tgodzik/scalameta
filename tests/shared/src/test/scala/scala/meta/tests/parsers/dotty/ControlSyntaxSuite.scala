@@ -1559,7 +1559,7 @@ class ControlSyntaxSuite extends BaseDottySuite {
     )(expected)
   }
 
-  test("match-dot-def") {
+  test("match-dot-def".only) {
     val expected = Defn.Def(
       Nil,
       Term.Name("mtch"),

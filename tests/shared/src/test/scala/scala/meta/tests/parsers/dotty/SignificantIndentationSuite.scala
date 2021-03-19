@@ -1210,4 +1210,113 @@ class SignificantIndentationSuite extends BaseDottySuite {
       )
     )
   }
+
+  test("empty-return") {
+    runTestAssert[Stat](
+      """|    def skip = {
+         |        token match {
+         |          case RBRACE =>
+         |            if (true)
+         |              return
+         |            change(-1)
+         |        }
+         |    }
+         |""".stripMargin,
+      assertLayout = Some(
+        """|def skip = {
+           |  token match {
+           |    case RBRACE =>
+           |      if (true) return
+           |      change(-1)
+           |  }
+           |}
+           |""".stripMargin
+      )
+    )(
+      Defn.Def(
+        Nil,
+        Term.Name("skip"),
+        Nil,
+        Nil,
+        None,
+        Term.Block(
+          List(
+            Term.Match(
+              Term.Name("token"),
+              List(
+                Case(
+                  Term.Name("RBRACE"),
+                  None,
+                  Term.Block(
+                    List(
+                      Term.If(Lit.Boolean(true), Term.Return(Lit.Unit()), Lit.Unit(), Nil),
+                      Term.Apply(Term.Name("change"), List(Lit.Int(-1)))
+                    )
+                  )
+                )
+              ),
+              Nil
+            )
+          )
+        )
+      )
+    )
+  }
+
+  test("empty-return".only) {
+    runTestAssert[Stat](
+      """| class MUnitGcpListener {
+         |  def onReport: Unit = {
+         |    val success = suffixes.find { suffix =>
+         |      try {
+         |        true
+         |      } catch {
+         |        case e: StorageException =>
+         |          false
+         |      }
+         |    }
+         |  }
+         |}
+         |
+         |""".stripMargin,
+      assertLayout = Some(
+        """|def skip = {
+           |  token match {
+           |    case RBRACE =>
+           |      if (true) return
+           |      change(-1)
+           |  }
+           |}
+           |""".stripMargin
+      )
+    )(
+      Defn.Def(
+        Nil,
+        Term.Name("skip"),
+        Nil,
+        Nil,
+        None,
+        Term.Block(
+          List(
+            Term.Match(
+              Term.Name("token"),
+              List(
+                Case(
+                  Term.Name("RBRACE"),
+                  None,
+                  Term.Block(
+                    List(
+                      Term.If(Lit.Boolean(true), Term.Return(Lit.Unit()), Lit.Unit(), Nil),
+                      Term.Apply(Term.Name("change"), List(Lit.Int(-1)))
+                    )
+                  )
+                )
+              ),
+              Nil
+            )
+          )
+        )
+      )
+    )
+  }
 }

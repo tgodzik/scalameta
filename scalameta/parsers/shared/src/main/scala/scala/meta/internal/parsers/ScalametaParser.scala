@@ -223,6 +223,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
   case object RegionBracket extends SepRegion
   case class RegionBrace(override val indent: Int, override val indentOnArrow: Boolean)
       extends SepRegion
+  case class RegionCase(override val indent: Int) extends SepRegion
   case class RegionEnum(override val indent: Int) extends SepRegion
   case class RegionIndentEnum(override val indent: Int) extends SepRegion {
     override def isIndented: Boolean = true
@@ -281,6 +282,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       prevPos = curr.pointPos
       curr = newTokenRef
       sepRegions = newSepRegions
+      // println(curr.token.getClass())
       curr.token
     }
 
@@ -340,7 +342,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
           token.is[KwDo] || token.is[KwCatch] || token.is[KwFinally] || token.is[KwYield] ||
           token.is[KwMatch]
 
-        if (existingIndent == expected && canEndIndentation(curr.token)) {
+        if (sepRegions.nonEmpty && existingIndent == expected && canEndIndentation(curr.token)) {
           sepRegions = sepRegions.tail
           curr = TokenRef(
             new Indentation.Outdent(token.input, token.dialect, token.start, token.end),
@@ -431,7 +433,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
           (nextRegions, currRef)
         } else if (curr.is[RightBrace]) {
           def isBraceOrEnum(r: SepRegion): Boolean = r match {
-            case _: RegionBrace | _: RegionEnum => true
+            case _: RegionBrace | _: RegionEnum | _: RegionCase => true
             case _ => false
           }
           if (dialect.allowSignificantIndentation) {
@@ -486,8 +488,15 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
           (nextRegions, currRef)
         } else if (curr.is[RightArrow]) {
           val nextRegions =
-            if (!sepRegions.isEmpty && sepRegions.head == RegionArrow) sepRegions.tail
-            else sepRegions
+            if (sepRegions.nonEmpty && sepRegions.head == RegionArrow) {
+              val newRegions = sepRegions.tail
+              val shouldNotProduceIndentation = newRegions.exists(!_.indentOnArrow)
+              lazy val indentInCase = if (isAheadNewLine(currPos)) countIndent(nextPos) else -1
+              if (newRegions.nonEmpty && shouldNotProduceIndentation && indentInCase > 0)
+                RegionCase(indentInCase) :: newRegions
+              else
+                newRegions
+            } else sepRegions
           (nextRegions, currRef)
         } else (sepRegions, currRef)
       } else {
@@ -518,6 +527,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
           next != null && next.isNot[CantStartStat] &&
           (sepRegions.isEmpty ||
             sepRegions.head.isInstanceOf[RegionBrace] ||
+            sepRegions.head.isInstanceOf[RegionCase] ||
             sepRegions.head.isInstanceOf[RegionEnum] ||
             sepRegions.head.isInstanceOf[RegionIndent] ||
             sepRegions.head.isInstanceOf[RegionIndentEnum])
@@ -588,6 +598,11 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
                   prev.is[KwMatch] && next.is[KwCase] && token.isNot[Indentation.Indent]
               } else false
             }
+            // println("curr: " + curr.getClass() + " : " + curr)
+            // println("prev: " + prev.getClass() + " : " + prev)
+            // println(needOutdent)
+            // println(needIndent)
+            // println(sepRegions)
 
             if (needOutdent)
               (sepRegions.tail, mkOutdent(prevPos))
@@ -595,8 +610,9 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
               (RegionIndent(nextIndent, prev.is[KwMatch]) :: sepRegions, mkIndent(nextPos))
             else if (canProduceLF) {
               (sepRegions, lastWhitespaceToken)
-            } else
+            } else {
               nextToken(prevPos, nextPos, sepRegions)
+            }
           } else nextToken(prevPos, nextPos, sepRegions)
 
         } else {
@@ -3047,9 +3063,11 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       } else {
         next()
         cases += caseClause()
+        // println(cases)
       }
       if (token.is[StatSep] && ahead(token.is[CaseIntro])) acceptStatSep()
     }
+    // println(token.getClass())
     if (cases.isEmpty) // trigger error if there are no cases
       accept[KwCase]
     cases.toList
