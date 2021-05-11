@@ -138,41 +138,24 @@ class TokensPositionSuite extends BasePositionSuite(dialects.Scala213) {
 
   checkPositions[Stat](
     "(a): @A",
-    """|Term.Name (a)
-       |Mod.Annot @A
+    """|Mod.Annot @A
        |""".stripMargin
   )
-  checkPositions[Stat](
-    "(f)((((a))))",
-    """|Term.Name (f)
-       |Term.Name (((a)))
-       |""".stripMargin
-  )
-  checkPositions[Stat](
-    "(f)((a))",
-    """|Term.Name (f)
-       |Term.Name (a)
-       |""".stripMargin
-  )
+  checkPositions[Stat]("(f)((((a))))")
+  checkPositions[Stat]("(f)((a))")
+
   checkPositions[Stat](
     "(f)({ case a => a })",
-    """|Term.Name (f)
-       |Term.PartialFunction { case a => a }
+    """|Term.PartialFunction { case a => a }
        |Case case a => a
        |""".stripMargin
   )
   checkPositions[Stat](
     "(f)({ x })",
-    """|Term.Name (f)
-       |Term.Block { x }
+    """|Term.Block { x }
        |""".stripMargin
   )
-  checkPositions[Stat](
-    "(a) op (b)",
-    """|Term.Name (a)
-       |Term.Name (b)
-       |""".stripMargin
-  )
+  checkPositions[Stat]("(a) op (b)")
   checkPositions[Stat](
     "(a, b) op (c, d)",
     """|Term.Tuple (a, b)
@@ -191,75 +174,36 @@ class TokensPositionSuite extends BasePositionSuite(dialects.Scala213) {
     """|Term.Name (b)
        |""".stripMargin
   )
-  checkPositions[Stat](
-    "(f) [A,B]",
-    """|Term.Name (f)
-       |""".stripMargin
-  )
-  checkPositions[Stat](
-    "(f) [A]",
-    """|Term.Name (f)
-       |""".stripMargin
-  )
-  checkPositions[Stat](
-    "- (a)",
-    """|Term.Name (a)
-       |""".stripMargin
-  )
-  checkPositions[Stat](
-    "(a): (A)",
-    """|Term.Name (a)
-       |Type.Name (A)
-       |""".stripMargin
-  )
-  checkPositions[Stat](
-    "(a) = (b)",
-    """|Term.Name (a)
-       |Term.Name (b)
-       |""".stripMargin
-  )
-  checkPositions[Stat](
-    "{ (a); (b) }",
-    """|Term.Name (a)
-       |Term.Name (b)
-       |""".stripMargin
-  )
+  checkPositions[Stat]("(f) [A,B]")
+  checkPositions[Stat]("(f) [A]")
+  checkPositions[Stat](    "- (a)"  )
+  checkPositions[Stat]("(a): (A)")
+  checkPositions[Stat]("(a) = (b)")
+  checkPositions[Stat]("{ (a); (b) }")
   checkPositions[Stat](
     "do {d} while (p)",
     """|Term.Block {d}
        |""".stripMargin
   )
-  checkPositions[Stat](
-    "(f) _",
-    """|Term.Name (f)
-       |""".stripMargin
-  )
+  checkPositions[Stat]("(f) _")
   checkPositions[Stat](
     "for { x <- xs } (f)",
     """|Enumerator.Generator x <- xs
-       |Term.Name (f)
        |""".stripMargin
   )
   checkPositions[Stat](
     "for { x <- xs } yield (f)",
     """|Enumerator.Generator x <- xs
-       |Term.Name (f)
        |""".stripMargin
   )
   checkPositions[Stat](
     "((a), (b)) => (a)",
     """|Term.Param (a)
-       |Term.Name (a)
        |Term.Param (b)
-       |Term.Name (b)
-       |Term.Name (a)
        |""".stripMargin
   )
   checkPositions[Stat](
-    "if (p) (t) else (f)",
-    """|Term.Name (t)
-       |Term.Name (f)
-       |""".stripMargin
+    "if (p) (t) else (f)"
   )
   checkPositions[Stat](
     "if (p) (t)",
@@ -329,9 +273,7 @@ class TokensPositionSuite extends BasePositionSuite(dialects.Scala213) {
        |""".stripMargin
   )
   checkPositions[Stat](
-    "(a).b",
-    """|Term.Name (a)
-       |""".stripMargin
+    "(a).b"
   )
   checkPositions[Stat](
     "a.super[B].c",
@@ -368,7 +310,7 @@ class TokensPositionSuite extends BasePositionSuite(dialects.Scala213) {
   checkPositions[Stat](
     "try (a.b).c",
     """|Term.Select (a.b).c
-       |Term.Select (a.b)
+       |Term.Select a.b
        |""".stripMargin
   )
   checkPositions[Stat](
@@ -388,7 +330,7 @@ class TokensPositionSuite extends BasePositionSuite(dialects.Scala213) {
   checkPositions[Stat](
     "try (a.b).c catch (h) finally (1, 2)",
     """|Term.Select (a.b).c
-       |Term.Select (a.b)
+       |Term.Select a.b
        |Term.Name (h)
        |Term.Tuple (1, 2)
        |""".stripMargin
@@ -657,6 +599,11 @@ class TokensPositionSuite extends BasePositionSuite(dialects.Scala213) {
   checkPositions[Pat]("<h1>a{b}c{d}e{f}g</h1>")
   checkPositions[Pat]("x: T")
   checkPositions[Pat]("y: T")
+  checkPositions[Stat](
+    "val x = (a).value".only,
+    """|Term.Select (a).value
+       |""".stripMargin
+  )
 
   checkPositions[Stat](
     """|trait SampleTrait extends A {

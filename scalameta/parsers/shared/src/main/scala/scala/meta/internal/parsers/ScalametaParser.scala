@@ -859,7 +859,10 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
     var endTokenPos = end.endTokenPos
     if (endTokenPos < startTokenPos) endTokenPos = startTokenPos - 1
     val pos = trimmedPos(startTokenPos, endTokenPos)
-    result.map(_.withOrigin(Origin.Parsed(input, dialect, pos)).asInstanceOf[T])
+    result.map{t => 
+      
+              
+      t.withOrigin(Origin.Parsed(input, dialect, pos)).asInstanceOf[T]}
   }
 
   def autoPos[T <: Tree](body: => T): T = atPos(start = auto, end = auto)(body)
@@ -1432,15 +1435,16 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
   }
 
   def inParensOrTupleOrUnit(location: Location, allowRepeated: Boolean): Term = {
-    // NOTE: we can't make this autoPos
-    // see comments to makeTupleType for discussion
+    val openParenPos = in.tokenPos
     val maybeTupleArgs = inParens({
       if (token.is[RightParen]) Nil
       else commaSeparated(expr(location = location, allowRepeated = allowRepeated))
     })
+    val closeParenPos = in.tokenPos
+
     maybeTupleArgs match {
       case List(Term.Quasi(1, _)) =>
-        makeTupleTerm(maybeTupleArgs)
+        atPos(openParenPos, closeParenPos)(makeTupleTerm(maybeTupleArgs))
       case List(singleArg) =>
         singleArg
       case multipleArgs =>
@@ -1448,7 +1452,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
         repeatedArgs.foreach(arg =>
           syntaxError("repeated argument not allowed here", at = arg.tokens.last.prev)
         )
-        makeTupleTerm(multipleArgs)
+        atPos(openParenPos, closeParenPos)(makeTupleTerm(multipleArgs))
     }
   }
 
@@ -2245,7 +2249,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
       accept[Ident]
       Mod.Inline()
     }
-    autoPos(token match {
+    token match {
       case soft.KwInline() if ahead(token.is[KwIf]) =>
         ifClause(List(inlineMod()))
       case InlineMatchMod() =>
@@ -2363,7 +2367,8 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
         next()
         implicitClosure(location)
       case _ =>
-        var t: Term = autoPos(postfixExpr(allowRepeated))
+        var t: Term = postfixExpr(allowRepeated)
+
         def repeatedTerm(nextTokens: () => Unit) = {
           if (allowRepeated) t = atPos(t, auto)({ nextTokens(); Term.Repeated(t) })
           else syntaxError("repeated argument not allowed here", at = token)
@@ -2533,7 +2538,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
           }
         }
         t
-    })
+    }
   }
 
   def implicitClosure(location: Location): Term.Function = {
@@ -2824,7 +2829,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
 
   def simpleExpr(allowRepeated: Boolean): Term = simpleExpr0(allowRepeated).get
 
-  private def simpleExpr0(allowRepeated: Boolean): Try[Term] = autoPosTry {
+  private def simpleExpr0(allowRepeated: Boolean): Try[Term] = {
     var canApply = true
     val t: Try[Term] = {
       token match {
@@ -2851,7 +2856,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
           next()
           Success(atPos(in.prevTokenPos, in.prevTokenPos)(Term.Placeholder()))
         case LeftParen() =>
-          Success(autoPos(inParensOrTupleOrUnit(location = NoStat, allowRepeated = allowRepeated)))
+          Success(inParensOrTupleOrUnit(location = NoStat, allowRepeated = allowRepeated))
         case LeftBrace() =>
           canApply = false
           Success(blockExpr())
@@ -2929,7 +2934,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
     }
   }
 
-  def simpleExprRest(t: Term, canApply: Boolean): Term = atPos(t, auto) {
+  def simpleExprRest(t: Term, canApply: Boolean): Term = {
     if (canApply) newLineOptWhenFollowedBy[LeftBrace]
     token match {
       case Dot() =>
@@ -2965,7 +2970,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
         simpleExprRest(arguments, canApply = true)
       case Underscore() =>
         next()
-        Term.Eta(t)
+        atPos(t, auto)(Term.Eta(t))
       case _ =>
         t
     }
