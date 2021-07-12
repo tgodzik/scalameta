@@ -4704,7 +4704,24 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
 
   def initInsideAnnotation(allowArgss: Boolean): Init = {
     def tpe = exprSimpleType()
-    initRest(() => tpe, allowArgss = allowArgss, allowBraces = false)
+    def default = autoPos(Init(tpe, autoPos(Name.Anonymous()), Nil))
+    val forked = in.fork
+    val annotInit = try {
+      initRest(() => tpe, allowArgss = allowArgss, allowBraces = false)
+    } catch {
+      // these are not proper arguments
+      case NonFatal(_) =>
+       in = forked
+       default
+    }
+    newLineOptWhenFollowedBy[LeftParen]
+    // we need an actual constructor to annotate
+    if (token.isNot[LeftParen]) {
+      in = forked
+      default
+    } else {
+      annotInit
+    }
   }
 
   def initInsideTemplate(): Init = {

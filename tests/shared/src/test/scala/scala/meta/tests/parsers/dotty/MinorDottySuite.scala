@@ -1133,4 +1133,49 @@ class MinorDottySuite extends BaseDottySuite {
     )
   }
 
+  test("deprecated-no-args-implicit") {
+    runTestAssert[Stat](
+      """|class Baz1 @deprecated(implicit c: C)
+         |""".stripMargin,
+      assertLayout = Some(
+        """|class Baz1 @deprecated (implicit c: C)
+           |""".stripMargin
+      )
+    )(
+      Defn.Class(
+        Nil,
+        Type.Name("Baz1"),
+        Nil,
+        Ctor.Primary(
+          List(Mod.Annot(Init(Type.Name("deprecated"), Name(""), Nil))),
+          Name(""),
+          List(List(Term.Param(List(Mod.Implicit()), Term.Name("c"), Some(Type.Name("C")), None)))
+        ),
+        Template(Nil, Nil, Self(Name(""), None), Nil, Nil)
+      )
+    )
+  }
+  test("deprecated-no-args") {
+    runTestAssert[Stat](
+      """|class Baz1 @deprecated(c: C)
+         |""".stripMargin,
+      assertLayout = Some(
+        """|class Baz1 @deprecated (c: C)
+           |""".stripMargin
+      )
+    )(
+      Defn.Class(
+        Nil,
+        Type.Name("Baz1"),
+        Nil,
+        Ctor.Primary(
+          List(Mod.Annot(Init(Type.Name("deprecated"), Name(""), Nil))),
+          Name(""),
+          List(List(Term.Param(Nil, Term.Name("c"), Some(Type.Name("C")), None)))
+        ),
+        Template(Nil, Nil, Self(Name(""), None), Nil, Nil)
+      )
+    )
+  }
+
 }
