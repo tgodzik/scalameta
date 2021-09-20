@@ -31,6 +31,13 @@ class BasicPositionSuite extends BasePositionSuite(dialects.Scala213) {
        |""".stripMargin
   )
   checkPositions[Stat](
+    // Issue #331
+    "qual fun { arg }",
+    """|Term.ApplyInfix bar || baz
+       |Term.Block case foo if bar || baz =>@@
+       |""".stripMargin
+  )
+  checkPositions[Stat](
     """a + b + c""",
     """|Term.ApplyInfix a + b
        |""".stripMargin
