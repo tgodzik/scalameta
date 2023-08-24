@@ -129,7 +129,7 @@ $original
 
   checkInfo(
     "scala/Predef.assert(+1).",
-    """scala/Predef.assert(+1). => @inline @elidable final method assert(assertion: Boolean, message: => Any): Unit"""
+    """scala/Predef.assert(+1). => @elidable @inline final method assert(assertion: Boolean, message: => Any): Unit"""
   )
   checkInfo(
     "scala/Any#",
