@@ -20,6 +20,7 @@ import scala.meta.tokenizers._
 import scala.meta.prettyprinters._
 import scala.meta.classifiers._
 import scala.meta.internal.classifiers._
+import scala.meta.internal.macros.AstInfoMacro._
 import org.scalameta._
 import org.scalameta.invariants._
 import scala.util.Try
@@ -138,7 +139,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
   def parseAmmonite(): MultiSource = parseRule(entryPointAmmonite())
 
   def entryPointAmmonite(): MultiSource = {
-    require(input.isInstanceOf[Input.Ammonite])
+    assert(input.isInstanceOf[Input.Ammonite])
     val builder = List.newBuilder[Source]
 
     doWhile {
@@ -455,17 +456,17 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
   def rejectMod[M <: Mod](
       mods: collection.Iterable[Mod],
       errorMsg: String
-  )(implicit tag: ClassTag[M]) = {
+  )(implicit tag: AstInfo[M]) = {
     mods.first[M].foreach(m => syntaxError(errorMsg, at = m))
   }
 
-  def rejectModCombination[M1 <: Mod: ClassTag, M2 <: Mod: ClassTag](
+  def rejectModCombination[M1 <: Mod: AstInfo, M2 <: Mod: AstInfo](
       mods: collection.Iterable[Mod],
       culpritOpt: => Option[String] = None
   ) =
     mods.first[M2].foreach(rejectModWith[M1](_, mods, culpritOpt))
 
-  def rejectModWith[M <: Mod: ClassTag](
+  def rejectModWith[M <: Mod: AstInfo](
       m2: Mod,
       mods: collection.Iterable[Mod],
       culpritOpt: => Option[String] = None
@@ -1301,6 +1302,9 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
     if (acceptOpt[Dot]) selectors(name) else name
   }
 
+  private val MaxFloat = BigDecimal.decimal(Float.MaxValue)
+  private val MinFloat = BigDecimal.decimal(Float.MinValue)
+
   def literal(isNegated: Boolean = false): Lit = {
     val startPos = if (isNegated) prevTokenPos else tokenPos
     def isHex = {
@@ -1324,8 +1328,9 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
         Lit.Long(value.toLong)
       case Constant.Float(rawValue) =>
         val value = if (isNegated) -rawValue else rawValue
-        if (value > Float.MaxValue) syntaxError("floating point number too large", at = token)
-        else if (value < Float.MinValue) syntaxError("floating point number too small", at = token)
+
+        if (value > MaxFloat) syntaxError("floating point number too large", at = token)
+        else if (value < MinFloat) syntaxError("floating point number too small", at = token)
         Lit.Float(value.toString)
       case Constant.Double(rawValue) =>
         val value = if (isNegated) -rawValue else rawValue

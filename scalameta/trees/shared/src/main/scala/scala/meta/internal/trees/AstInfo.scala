@@ -14,26 +14,26 @@ trait AstInfo[T <: Ast] extends ClassTag[T] {
   def runtimeClass: Class[T]
   def quasi(rank: Int, tree: Tree): T with Quasi
 }
-object AstInfo {
-  implicit def materialize[T <: Ast]: AstInfo[T] = macro AstInfoMacros.materialize[T]
-}
+// object AstInfo {
+//   implicit def materialize[T <: Ast]: AstInfo[T] = macro AstInfoMacros.materialize[T]
+// }
 
-class AstInfoMacros(val c: Context) extends MacroHelpers {
-  import c.universe._
+// class AstInfoMacros(val c: Context) extends MacroHelpers {
+//   import c.universe._
 
-  def materialize[T](implicit T: c.WeakTypeTag[T]): c.Tree = {
-    val QuasiSymbol = rootMirror.staticClass("scala.meta.internal.trees.Quasi")
-    val TreeSymbol = rootMirror.staticClass("scala.meta.Tree")
-    val QuasiFactory = {
-      if (T.tpe <:< QuasiSymbol.toType) q"${T.tpe.typeSymbol.companion}"
-      else if (T.tpe <:< TreeSymbol.toType) q"${T.tpe.typeSymbol.companion}.Quasi"
-      else c.abort(c.enclosingPosition, s"${T.tpe} is not an ast class and can't be used here.")
-    }
-    q"""
-      new $AstInfoClass[$T] {
-        def runtimeClass: $ClassClass[$T] = implicitly[$ClassTagClass[$T]].runtimeClass.asInstanceOf[$ClassClass[$T]]
-        def quasi(rank: $IntClass, tree: $TreeSymbol): $T with $QuasiClass = $QuasiFactory.apply(rank, tree)
-      }
-    """
-  }
-}
+//   def materialize[T](implicit T: c.WeakTypeTag[T]): c.Tree = {
+//     val QuasiSymbol = rootMirror.staticClass("scala.meta.internal.trees.Quasi")
+//     val TreeSymbol = rootMirror.staticClass("scala.meta.Tree")
+//     val QuasiFactory = {
+//       if (T.tpe <:< QuasiSymbol.toType) q"${T.tpe.typeSymbol.companion}"
+//       else if (T.tpe <:< TreeSymbol.toType) q"${T.tpe.typeSymbol.companion}.Quasi"
+//       else c.abort(c.enclosingPosition, s"${T.tpe} is not an ast class and can't be used here.")
+//     }
+//     q"""
+//       new $AstInfoClass[$T] {
+//         def runtimeClass: $ClassClass[$T] = implicitly[$ClassTagClass[$T]].runtimeClass.asInstanceOf[$ClassClass[$T]]
+//         def quasi(rank: $IntClass, tree: $TreeSymbol): $T with $QuasiClass = $QuasiFactory.apply(rank, tree)
+//       }
+//     """
+//   }
+// }
