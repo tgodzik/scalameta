@@ -139,7 +139,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
   def parseAmmonite(): MultiSource = parseRule(entryPointAmmonite())
 
   def entryPointAmmonite(): MultiSource = {
-    require(input.isInstanceOf[Input.Ammonite])
+    assert(input.isInstanceOf[Input.Ammonite], s"Expected Input.Ammonite, not ${input.getClass}")
     val builder = List.newBuilder[Source]
 
     doWhile {
@@ -608,7 +608,7 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
     }
 
   private def unquote[T <: Tree: AstInfo](unquote: Unquote): T with Quasi = {
-    require(unquote.input.chars(unquote.start + 1) != '$')
+    assert(unquote.input.chars(unquote.start + 1) != '$', "Expected unquote to start with $")
     if (!dialect.allowUnquotes) {
       syntaxError(s"$dialect doesn't support unquotes", at = unquote)
     }
@@ -1306,12 +1306,16 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
     if (acceptOpt[Dot]) selectors(name) else name
   }
 
+  private val MaxFloat = BigDecimal.decimal(Float.MaxValue)
+  private val MinFloat = BigDecimal.decimal(Float.MinValue)
+  
   def literal(isNegated: Boolean = false): Lit = {
     val startPos = if (isNegated) prevTokenPos else tokenPos
     def isHex = {
       val syntax = token.syntax
       syntax.startsWith("0x") || syntax.startsWith("0X")
     }
+
     val res = token match {
       case Constant.Int(rawValue) =>
         val value = if (isNegated) -rawValue else rawValue
@@ -1329,8 +1333,8 @@ class ScalametaParser(input: Input)(implicit dialect: Dialect) { parser =>
         Lit.Long(value.toLong)
       case Constant.Float(rawValue) =>
         val value = if (isNegated) -rawValue else rawValue
-        if (value > Float.MaxValue) syntaxError("floating point number too large", at = token)
-        else if (value < Float.MinValue) syntaxError("floating point number too small", at = token)
+        if (value > MaxFloat) syntaxError("floating point number too large", at = token)
+        else if (value < MinFloat) syntaxError("floating point number too small", at = token)
         Lit.Float(value.toString)
       case Constant.Double(rawValue) =>
         val value = if (isNegated) -rawValue else rawValue

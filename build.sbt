@@ -213,14 +213,30 @@ lazy val parsers = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("scalameta/parsers"))
   .settings(
     sharedSettings,
+    crossScalaVersions := LanguageVersions ++ List("3.3.1"),
     description := "Scalameta APIs for parsing and their baseline implementation",
     enableHardcoreMacros,
-    mergedModule({ base =>
-      List(
-        base / "scalameta" / "quasiquotes",
-        base / "scalameta" / "transversers"
-      )
-    })
+    libraryDependencies ++= List(
+      "com.lihaoyi" %%% "fastparse" % "3.0.2"
+    ),
+    excludeDependencies ++= {
+      if (isScala3.value)
+        Seq(
+          ExclusionRule("com.lihaoyi", "fastparse_2.13"),
+          ExclusionRule("com.lihaoyi", "geny_2.13"),
+          ExclusionRule("com.lihaoyi", "sourcecode_2.13")
+        )
+      else Nil
+    },
+    mergedModule(
+      { base =>
+        List(
+          base / "scalameta" / "quasiquotes",
+          base / "scalameta" / "transversers"
+        )
+      },
+      base => Nil
+    )
   )
   .configureCross(crossPlatformPublishSettings)
   .configureCross(crossPlatformShading)
@@ -245,7 +261,10 @@ lazy val parsers = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .nativeSettings(nativeSettings)
   .dependsOn(trees)
 
-def mergedModule(projects: File => List[File]): List[Setting[_]] = List(
+def mergedModule(
+    projects: File => List[File],
+    projects3: File => List[File] = _ => Nil
+): List[Setting[_]] = List(
   Compile / unmanagedSourceDirectories ++= {
     val base = (ThisBuild / baseDirectory).value
     val isNative = platformDepsCrossVersion.value == ScalaNativeCrossVersion.binary
@@ -255,7 +274,8 @@ def mergedModule(projects: File => List[File]): List[Setting[_]] = List(
       else if (isNative) "native"
       else "jvm"
     val scalaBinary = "scala-" + scalaBinaryVersion.value
-    projects(base).flatMap { project =>
+    val allProjects = if (isScala3.value) projects3(base) else projects(base)
+    allProjects.flatMap { project =>
       List(
         project / "shared" / "src" / "main" / scalaBinary,
         project / "shared" / "src" / "main" / "scala",
@@ -537,6 +557,7 @@ def isScalaBinaryVersion(version: String) =
   Def.setting { scalaBinaryVersion.value == version }
 lazy val isScala211 = isScalaBinaryVersion("2.11")
 lazy val isScala213 = isScalaBinaryVersion("2.13")
+lazy val isScala3 = isScalaBinaryVersion("3")
 
 lazy val sharedSettings = Def.settings(
   version ~= { dynVer =>
@@ -549,11 +570,11 @@ lazy val sharedSettings = Def.settings(
   crossScalaVersions := LanguageVersions,
   organization := "org.scalameta",
   libraryDependencies ++= {
-    if (isScala213.value) Nil
+    if (isScala213.value || isScala3.value) Nil
     else List(compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full))
   },
   scalacOptions ++= {
-    if (isScala213.value) List("-Ymacro-annotations")
+    if (isScala213.value || isScala3.value) List("-Ymacro-annotations")
     else Nil
   },
   scalacOptions ++= Seq("-feature", "-unchecked"),
@@ -830,15 +851,19 @@ lazy val enableMacros = macroDependencies(hardcore = false)
 
 lazy val enableHardcoreMacros = macroDependencies(hardcore = true)
 
-def macroDependencies(hardcore: Boolean) = libraryDependencies ++= {
-  val scalaReflect =
-    Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided")
-  val scalaCompiler = {
-    if (hardcore)
-      Seq("org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided")
-    else Nil
+def macroDependencies(hardcore: Boolean) = {
+  libraryDependencies ++= {
+    val scalaReflect =
+      Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided")
+    val scalaCompiler = {
+      if (hardcore)
+        Seq("org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided")
+      else Nil
+    }
+    if (isScala3.value) Nil
+    else
+      scalaReflect ++ scalaCompiler
   }
-  scalaReflect ++ scalaCompiler
 }
 
 lazy val docs = project
