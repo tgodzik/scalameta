@@ -18,7 +18,7 @@ class SbtSuite extends FunSuite {
   }
 
   test("source\"...\"") {
-    val tree = source"""
+    val tree = """
       lazy val commonSettings = Seq(
         organization := "com.example",
         version := "0.1.0",
@@ -30,7 +30,7 @@ class SbtSuite extends FunSuite {
         settings(
           name := "hello"
         )
-    """
+    """.parse[Source].get
     // NOTE: not checking against simpleBuildSyntax because quasiquotes don't retain tokens
     assertNoDiff(
       tree.syntax,

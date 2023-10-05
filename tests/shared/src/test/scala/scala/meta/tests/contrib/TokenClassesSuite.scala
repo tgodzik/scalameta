@@ -7,7 +7,10 @@ import scala.meta.contrib._
 class TokenClassesSuite extends munit.FunSuite {
   test("example usage") {
     val obtained = "foo /* comment */ bar\n\t // this is a comment".tokenize.get
-      .filterNot(_.is[Trivia])
+      .filterNot{
+        case Trivia() => true
+        case _ => false
+      }
       .mkString
     val expected = "foobar"
     assert(obtained == expected)

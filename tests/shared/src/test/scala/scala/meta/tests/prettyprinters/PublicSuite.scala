@@ -6,8 +6,9 @@ import java.nio.charset.Charset
 import munit._
 import scala.meta._
 import compat.Platform.EOL
+import scala.meta.tests.parsers.ParseSuite
 
-class PublicSuite extends TreeSuiteBase {
+class PublicSuite extends ParseSuite {
   test("scala.meta.Dialect.toString") {
     // covered below
   }
@@ -40,21 +41,6 @@ class PublicSuite extends TreeSuiteBase {
   test("scala.meta.Tree.syntax (parsed)") {
     val tree = "foo + bar // baz".parse[Term].get
     assertWithOriginalSyntax(tree, "foo + bar // baz", "foo + bar")
-  }
-
-  test("scala.meta.Tree.toString (quasiquotes)") {
-    val tree = q"foo + bar // baz"
-    assertEquals(tree.toString, "foo + bar")
-  }
-
-  test("scala.meta.Tree.structure (quasiquoted)") {
-    val tree = q"foo + bar // baz"
-    assertTree(tree)(Term.ApplyInfix(Term.Name("foo"), Term.Name("+"), Nil, List(Term.Name("bar"))))
-  }
-
-  test("scala.meta.Tree.syntax (quasiquoted)") {
-    val tree = q"foo + bar // baz"
-    assertWithOriginalSyntax(tree, "foo + bar", "foo + bar")
   }
 
   test("scala.meta.classifiers.Classifiable.toString") {
@@ -264,9 +250,14 @@ class PublicSuite extends TreeSuiteBase {
   }
 
   test("scala.meta.inputs.Position.Range.toString") {
-    val Term.ApplyInfix(lhs, _, _, _) = "foo + bar".parse[Term].get
-    lhs.pos match { case _: Position.Range => ; case _ => }
-    assert(lhs.pos.toString == """[0..3) in Input.String("foo + bar")""")
+    matchSubStructure[Stat](
+      "foo + bar",
+      { case Term.ApplyInfix(lhs, _, _, _) =>
+        lhs.pos match { case _: Position.Range => ; case _ => }
+        assert(lhs.pos.toString == """[0..3) in Input.String("foo + bar")""")
+      }
+    )
+
   }
 
   test("scala.meta.io.AbsolutePath.toString") {

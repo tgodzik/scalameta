@@ -5,6 +5,7 @@ object Versions {
   val Scala211Versions = getVersions(2, 11, 12 to 12)
   val Scala212Versions = getVersions(2, 12, 15 to 18)
   val Scala213Versions = getVersions(2, 13, 9 to 12)
+  val Scala3Version = "3.3.1"
   val LatestScala211 = Scala211Versions.head
   val LatestScala212 = Scala212Versions.head
   val LatestScala213 = Scala213Versions.head

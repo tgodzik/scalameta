@@ -61,7 +61,8 @@ trait InternalTree extends Product {
             val input = Input.VirtualFile("<InternalTrees.tokens>", value)
             Tokens(Array(Constant.String(input, dialect, 0, value.length, value)))
           case _ =>
-            dialect(Input.VirtualFile("<InternalTrees.tokens>", this.syntax)).tokenize.get
+            val input = Input.VirtualFile("<InternalTrees.tokens>", this.syntax)
+            (dialect, input).tokenize.get
         }
     }
   }

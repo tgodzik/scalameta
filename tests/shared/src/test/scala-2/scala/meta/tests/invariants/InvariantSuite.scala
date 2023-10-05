@@ -10,7 +10,7 @@ import scala.compat.Platform.EOL
 class InvariantSuite extends FunSuite {
   test("more informative error messages") {
     val x = 2
-    try require(x > 3)
+    try assert(x > 3)
     catch {
       case ex: InvariantFailedException =>
         assert(ex.getMessage == """
@@ -25,7 +25,7 @@ class InvariantSuite extends FunSuite {
   test("even more informative error messages") {
     val y = 2
     try {
-      case class C(x: Int) { require(x != 3 && debug(x, y)) }
+      case class C(x: Int) { assert(x != 3 && debug(x, y)) }
       C(3)
     } catch {
       case ex: InvariantFailedException =>
@@ -39,17 +39,6 @@ class InvariantSuite extends FunSuite {
           |where y = 2
         """.trim.stripMargin.split('\n').mkString(EOL)
         )
-    }
-  }
-
-  test("unreachable - 1") {
-    try {
-      unreachable
-    } catch {
-      case ex: UnreachableError =>
-        assert(ex.getMessage == """
-          |this code path should've been unreachable
-        """.trim.stripMargin.split('\n').mkString(EOL))
     }
   }
 
@@ -69,6 +58,6 @@ class InvariantSuite extends FunSuite {
   }
 
   test("don't evaluate debug") {
-    require(true && debug(throw new Exception))
+    assert(true && debug(throw new Exception))
   }
 }

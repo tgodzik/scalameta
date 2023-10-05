@@ -108,6 +108,8 @@ lazy val semanticdbScalacCore = project
     sharedSettings,
     publishJVMSettings,
     fullCrossVersionSettings,
+    // should not depend transitively on Scala 3 versions
+    lihaoyiExclusions,
     mimaPreviousArtifacts := Set.empty,
     moduleName := "semanticdb-scalac-core",
     description := "Library to generate SemanticDB from Scalac 2.x internal data structures",
@@ -122,6 +124,7 @@ lazy val semanticdbScalacPlugin = project
     description := "Scalac 2.x compiler plugin that generates SemanticDB on compile",
     sharedSettings,
     publishJVMSettings,
+    lihaoyiExclusions,
     mimaPreviousArtifacts := Set.empty,
     mergeSettings,
     fullCrossVersionSettings,
@@ -150,6 +153,7 @@ lazy val metac = project
     sharedSettings,
     publishJVMSettings,
     fullCrossVersionSettings,
+    lihaoyiExclusions,
     crossScalaVersions := LanguageVersions,
     mimaPreviousArtifacts := Set.empty,
     description := "Scalac 2.x launcher that generates SemanticDB on compile",
@@ -213,14 +217,22 @@ lazy val parsers = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("scalameta/parsers"))
   .settings(
     sharedSettings,
+    crossScalaVersions := LanguageVersions :+ Scala3Version,
     description := "Scalameta APIs for parsing and their baseline implementation",
     enableHardcoreMacros,
-    mergedModule({ base =>
-      List(
-        base / "scalameta" / "quasiquotes",
-        base / "scalameta" / "transversers"
-      )
-    })
+    libraryDependencies ++= List(
+      "com.lihaoyi" %%% "fastparse" % "3.0.2"
+    ),
+    lihaoyiExclusions,
+    mergedModule(
+      { base =>
+        List(
+          base / "scalameta" / "quasiquotes",
+          base / "scalameta" / "transversers"
+        )
+      },
+      base => Nil
+    )
   )
   .configureCross(crossPlatformPublishSettings)
   .configureCross(crossPlatformShading)
@@ -245,7 +257,10 @@ lazy val parsers = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .nativeSettings(nativeSettings)
   .dependsOn(trees)
 
-def mergedModule(projects: File => List[File]): List[Setting[_]] = List(
+def mergedModule(
+    projects: File => List[File],
+    projects3: File => List[File] = _ => Nil
+): List[Setting[_]] = List(
   Compile / unmanagedSourceDirectories ++= {
     val base = (ThisBuild / baseDirectory).value
     val isNative = platformDepsCrossVersion.value == ScalaNativeCrossVersion.binary
@@ -255,7 +270,8 @@ def mergedModule(projects: File => List[File]): List[Setting[_]] = List(
       else if (isNative) "native"
       else "jvm"
     val scalaBinary = "scala-" + scalaBinaryVersion.value
-    projects(base).flatMap { project =>
+    val allProjects = if (isScala3.value) projects3(base) else projects(base)
+    allProjects.flatMap { project =>
       List(
         project / "shared" / "src" / "main" / scalaBinary,
         project / "shared" / "src" / "main" / "scala",
@@ -269,31 +285,50 @@ lazy val scalameta = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("scalameta/scalameta"))
   .settings(
     sharedSettings,
+    crossScalaVersions := LanguageVersions :+ Scala3Version,
+    lihaoyiExclusions,
     description := "Scalameta umbrella module that includes all public APIs",
-    libraryDependencies ++= List(
-      "org.scala-lang" % "scalap" % scalaVersion.value
-    ),
-    Compile / unmanagedSourceDirectories ++= {
-      val base = (ThisBuild / baseDirectory).value
-      List(
-        base / "semanticdb" / "metap",
-        base / "semanticdb" / "cli",
-        base / "semanticdb" / "semanticdb"
-      )
+    libraryDependencies ++= {
+      if (!isScala3.value)
+        List(
+          "org.scala-lang" % "scalap" % scalaVersion.value
+        )
+      else Nil
     },
-    mergedModule({ base =>
-      List(
-        base / "scalameta" / "contrib"
-      )
-    })
+    Compile / unmanagedSourceDirectories ++= {
+      if (!isScala3.value) {
+        val base = (ThisBuild / baseDirectory).value
+        List(
+          base / "semanticdb" / "metap",
+          base / "semanticdb" / "cli",
+          base / "semanticdb" / "semanticdb"
+        )
+      } else Nil
+    },
+    mergedModule(
+      { base =>
+        List(
+          base / "scalameta" / "contrib"
+        )
+      },
+      { base =>
+        List(
+          base / "scalameta" / "contrib"
+        )
+      }
+    )
   )
   .configureCross(crossPlatformPublishSettings)
   .configureCross(crossPlatformShading)
   .jvmSettings(
-    Compile / unmanagedSourceDirectories ++= List(
-      (ThisBuild / baseDirectory).value / "semanticdb" / "metacp",
-      (ThisBuild / baseDirectory).value / "semanticdb" / "symtab"
-    )
+    Compile / unmanagedSourceDirectories ++= {
+      if (!isScala3.value)
+        List(
+          (ThisBuild / baseDirectory).value / "semanticdb" / "metacp",
+          (ThisBuild / baseDirectory).value / "semanticdb" / "symtab"
+        )
+      else Nil
+    }
   )
   .jsSettings(
     commonJsSettings
@@ -308,6 +343,7 @@ lazy val semanticdbIntegration = project
     description := "Sources to compile to build SemanticDB for tests.",
     sharedSettings,
     nonPublishableSettings,
+    lihaoyiExclusions,
     // the sources in this project intentionally produce warnings to test the
     // diagnostics pipeline in semanticdb-scalac.
     scalacOptions -= "-Xfatal-warnings",
@@ -353,6 +389,8 @@ lazy val testkit = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("scalameta/testkit"))
   .settings(
     sharedSettings,
+    crossScalaVersions := LanguageVersions :+ Scala3Version,
+    lihaoyiExclusions,
     hasLargeIntegrationTests,
     libraryDependencies ++= Seq(
       "org.scalameta" %%% "munit" % munitVersion
@@ -369,8 +407,7 @@ lazy val testkit = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     },
     libraryDependencies ++= List(
       // These are used to download and extract a corpus tar.gz
-      "org.rauschig" % "jarchivelib" % "1.2.0",
-      "org.scala-lang" % "scala-compiler" % scalaVersion.value % Test
+      "org.rauschig" % "jarchivelib" % "1.2.0"
     )
   )
   .jsSettings(commonJsSettings)
@@ -381,7 +418,9 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .configs(Slow, All)
   .settings(
     sharedSettings,
+    crossScalaVersions := LanguageVersions :+ Scala3Version,
     testFrameworks := List(new TestFramework("munit.Framework")),
+    lihaoyiExclusions,
     nonPublishableSettings,
     description := "Tests for scalameta APIs",
     exposePaths("tests", Test)
@@ -390,7 +429,7 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .jvmSettings(
     libraryDependencies += {
       val coursierVersion = if (isScala211.value) "2.0.0-RC5-6" else "2.1.8"
-      "io.get-coursier" %% "coursier" % coursierVersion
+      ("io.get-coursier" %% "coursier" % coursierVersion).cross(CrossVersion.for3Use2_13)
     },
     dependencyOverrides += {
       val scalaXmlVersion = if (isScala211.value) "1.3.0" else "2.1.0"
@@ -399,9 +438,9 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     // Needed because some tests rely on the --usejavacp option
     Test / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat
   )
-  .jvmConfigure(
-    _.dependsOn(metac, semanticdbIntegration)
-  )
+  // .jvmConfigure(
+  // _.dependsOn(metac, semanticdbIntegration)
+  // )
   .jsSettings(
     commonJsSettings,
     scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) }
@@ -416,12 +455,17 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .enablePlugins(BuildInfoPlugin)
   .dependsOn(scalameta, testkit)
 
+lazy val testsSemanticdb = project.in(file("tests-semanticdb"))
+
 lazy val testSettings: List[Def.SettingsDefinition] = List(
   Test / fullClasspath := {
-    val semanticdbScalacJar =
-      (semanticdbScalacPlugin / Compile / Keys.`package`).value.getAbsolutePath
-    sys.props("sbt.paths.semanticdb-scalac-plugin.compile.jar") = semanticdbScalacJar
-    (Test / fullClasspath).value
+    if (isScala3.value) { (Test / fullClasspath).value }
+    else {
+      val semanticdbScalacJar =
+        (semanticdbScalacPlugin / Compile / Keys.`package`).value.getAbsolutePath
+      sys.props("sbt.paths.semanticdb-scalac-plugin.compile.jar") = semanticdbScalacJar
+      (Test / fullClasspath).value
+    }
   },
   buildInfoKeys := Seq[BuildInfoKey](
     scalaVersion,
@@ -537,6 +581,7 @@ def isScalaBinaryVersion(version: String) =
   Def.setting { scalaBinaryVersion.value == version }
 lazy val isScala211 = isScalaBinaryVersion("2.11")
 lazy val isScala213 = isScalaBinaryVersion("2.13")
+lazy val isScala3 = isScalaBinaryVersion("3")
 
 lazy val sharedSettings = Def.settings(
   version ~= { dynVer =>
@@ -549,7 +594,7 @@ lazy val sharedSettings = Def.settings(
   crossScalaVersions := LanguageVersions,
   organization := "org.scalameta",
   libraryDependencies ++= {
-    if (isScala213.value) Nil
+    if (isScala213.value || isScala3.value) Nil
     else List(compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full))
   },
   scalacOptions ++= {
@@ -772,6 +817,25 @@ def compatibilityPolicyViolation(ticket: String) = Seq(
   mimaPreviousArtifacts := Set.empty
 )
 
+def lihaoyiExclusions = Seq(
+  excludeDependencies ++= {
+    if (isScala3.value)
+      Seq(
+        ExclusionRule("com.lihaoyi", s"fastparse_2.13"),
+        ExclusionRule("com.lihaoyi", s"geny_2.13"),
+        ExclusionRule("com.lihaoyi", s"sourcecode_2.13")
+      )
+    else
+      Seq(
+        // ExclusionRule("org.scalameta", s"scalameta_3"),
+        // ExclusionRule("org.scalameta", s"parser_3"),
+        ExclusionRule("com.lihaoyi", s"fastparse_3"),
+        ExclusionRule("com.lihaoyi", s"geny_3"),
+        ExclusionRule("com.lihaoyi", s"sourcecode_3")
+      )
+  }
+)
+
 lazy val fullCrossVersionSettings = Seq(
   crossVersion := CrossVersion.full,
   crossScalaVersions := AllScalaVersions,
@@ -830,15 +894,19 @@ lazy val enableMacros = macroDependencies(hardcore = false)
 
 lazy val enableHardcoreMacros = macroDependencies(hardcore = true)
 
-def macroDependencies(hardcore: Boolean) = libraryDependencies ++= {
-  val scalaReflect =
-    Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided")
-  val scalaCompiler = {
-    if (hardcore)
-      Seq("org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided")
-    else Nil
+def macroDependencies(hardcore: Boolean) = {
+  libraryDependencies ++= {
+    val scalaReflect =
+      Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided")
+    val scalaCompiler = {
+      if (hardcore)
+        Seq("org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided")
+      else Nil
+    }
+    if (isScala3.value) Nil
+    else
+      scalaReflect ++ scalaCompiler
   }
-  scalaReflect ++ scalaCompiler
 }
 
 lazy val docs = project

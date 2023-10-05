@@ -7,6 +7,7 @@ import scala.meta.dialects.Scala211
 import scala.meta.internal.trees.Origin
 
 import compat.Platform.EOL
+import scala.meta.tests.parsers.ParseSuite
 
 // FIXME: https://github.com/scalatest/scalatest/issues/1112
 // I had to remove $ characters from all test names in this file.
@@ -14,7 +15,7 @@ import compat.Platform.EOL
 // so it would spuriously crash with "duplicated test" exceptions for e.g.:
 // test("1 p\"case $x: T => \"") { ... } and test("1 p\"case $x @ $y => \"") { .. }.
 
-class SuccessSuite extends TreeSuiteBase {
+class SuccessSuite extends ParseSuite {
   test("rank-0 liftables") {
     assertTree(q"foo[${42}]")(Term.ApplyType(Term.Name("foo"), List(Lit.Int(42))))
     assertTree(q"${42}")(Lit.Int(42))
@@ -3029,29 +3030,25 @@ class SuccessSuite extends TreeSuiteBase {
     assertTrees(params3: _*)(Term.ArgClause(List(assignA, assignB), None))
   }
 
-  test("#3409") {
-    val code: Tree = source"object Generated {}"
-    code.privateOrigin match {
-      case Origin.None =>
-      case x => fail(s"origin doesn't match: $x")
-    }
+  test("block-arg") {
+    val res = term("new Foo({str => str.length})")
+    val termList = q"List($res)"
+    assertTree(term(termList.syntax))(termList)
   }
 
-  test("#3409 check interpolated origin") {
-    val valX = q"x // X"
-    val fOfX = q"func( $valX )"
+  test("scala.meta.Tree.toString (quasiquotes)") {
+    val tree = q"foo + bar // baz"
+    assert(tree.toString == "foo + bar")
+  }
 
-    assertWithOriginalSyntax(valX, "x", "x")
-    assertWithOriginalSyntax(fOfX, "func(x)", "func(x)")
+  test("scala.meta.Tree.structure (quasiquoted)") {
+    val tree = q"foo + bar // baz"
+    assertTree(tree)(Term.ApplyInfix(Term.Name("foo"), Term.Name("+"), Nil, List(Term.Name("bar"))))
+  }
 
-    def assertOriginType(obtained: Tree, expected: Class[_ <: Origin]): Unit =
-      assertEquals(
-        obtained.origin.getClass.asInstanceOf[Class[Origin]],
-        expected.asInstanceOf[Class[Origin]]
-      )
-
-    assertOriginType(valX, Origin.None.getClass)
-    assertOriginType(fOfX, Origin.None.getClass)
+  test("scala.meta.Tree.syntax (quasiquoted)") {
+    val tree = q"foo + bar // baz"
+    assert(tree.syntax == "foo + bar")
   }
 
 }

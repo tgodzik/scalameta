@@ -3,6 +3,7 @@ package parsers
 
 import scala.meta._
 import scala.meta.dialects.Scala211
+import scala.meta.contrib.TreeOps
 
 class LitSuite extends ParseSuite {
 
@@ -81,7 +82,7 @@ class LitSuite extends ParseSuite {
   }
 
   test("'foo'") {
-    assertTree(term("'foo"))(Lit.Symbol('foo))
+    assertTree(term("'foo"))(Lit.Symbol(Symbol("'foo")))
   }
 
   test("null") {
@@ -104,7 +105,7 @@ class LitSuite extends ParseSuite {
   }
 
   test("#344") {
-    val minusOne = term("1 + -1").collect { case Term.ApplyInfix(_, _, _, List(minusOne)) =>
+    val minusOne = TreeOps.collect(term("1 + -1")) { case Term.ApplyInfix(_, _, _, List(minusOne)) =>
       minusOne
     }.head
     assert(minusOne.tokens.structure == "Tokens(- [4..5), 1 [5..6))")

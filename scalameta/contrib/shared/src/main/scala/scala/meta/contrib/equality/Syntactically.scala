@@ -2,6 +2,7 @@ package scala.meta.contrib.equality
 
 import scala.language.implicitConversions
 import scala.meta.Tree
+import meta.XtensionSyntax
 
 /**
  * Represents syntactic equality between trees Two trees are syntactically equal if their .syntax is

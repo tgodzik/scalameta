@@ -8,7 +8,8 @@ import scala.meta.internal.trees.Origin
 import MoreHelpers._
 
 import org.scalameta.logger
-
+import scala.meta.contrib.TreeOps
+                                                
 class ParseSuite extends TreeSuiteBase with CommonTrees {
   val EOL = scala.compat.Platform.EOL
   val escapedEOL = if (EOL == "\n") """\n""" else """\r\n"""
@@ -41,7 +42,6 @@ class ParseSuite extends TreeSuiteBase with CommonTrees {
   def blockStat(code: String)(implicit dialect: Dialect) = parseRule(code, _.blockStatSeq().head)
   def parseCase(code: String)(implicit dialect: Dialect) = code.applyRule(_.parseCase())
   def source(code: String)(implicit dialect: Dialect) = parseRule(code, _.source())
-
   def ammonite(code: String)(implicit dialect: Dialect) =
     code.asAmmoniteInput.parseRule(_.entryPointAmmonite())
 
@@ -157,7 +157,7 @@ class ParseSuite extends TreeSuiteBase with CommonTrees {
 
 object MoreHelpers {
   def requireNonEmptyOrigin(tree: Tree)(implicit dialect: Dialect): tree.type = {
-    val missingOrigin = tree.collect {
+    val missingOrigin = TreeOps.collect(tree){
       case t if t.origin == Origin.None => t
     }
     Assertions.assertEquals(

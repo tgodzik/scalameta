@@ -99,7 +99,7 @@ class MacroSuite extends BaseDottySuite {
     runTestAssert[Stat]("x match { case 'c => 1 }", assertLayout = Some(layoutMatchSimple))(
       Term.Match(
         tname("x"),
-        List(Case(Lit.Symbol('c), None, Lit.Int(1))),
+        List(Case(Lit.Symbol(Symbol("c")), None, Lit.Int(1))),
         Nil
       )
     )

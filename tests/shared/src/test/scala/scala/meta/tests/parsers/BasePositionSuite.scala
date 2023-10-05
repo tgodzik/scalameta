@@ -7,6 +7,7 @@ import scala.meta.Dialect
 import scala.meta.internal.inputs._
 import scala.meta.parsers.Parse
 import scala.meta.tests.parsers.MoreHelpers
+import scala.meta.contrib.TreeOps
 
 abstract class BasePositionSuite(defaultDialect: Dialect) extends ParseSuite {
   import scala.meta._
@@ -55,7 +56,7 @@ abstract class BasePositionSuite(defaultDialect: Dialect) extends ParseSuite {
     test(code) {
       implicit val D = defaultDialect
       val tree = MoreHelpers.requireNonEmptyOrigin(code.name.parse[T].get)
-      val tokens = tree.collect {
+      val tokens =  TreeOps.collect(tree) {
         // Reduce the expected output by ignoring lines that can be trivially
         // verified. A line can be trivially verified when you can re-print the
         // `.syntax` without using tokens. For example, if a Mod.Lazy tree has
