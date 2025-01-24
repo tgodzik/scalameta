@@ -153,24 +153,27 @@ trait TextDocumentOps {
               case _ =>
             }
           }
-          def indexPats(pats: List[m.Pat]): Unit = pats.foreach(_.traverse {
-            case pat: m.Pat.Extract => indexPatsWithExtract(pat)
+          def indexPats(pats: List[m.Pat], mpos: Int = -1): Unit = pats.foreach(_.traverse {
+            case pat: m.Pat.Var if mpos > 0 =>
+              val npos = pat.name.pos; mvalpatstart += npos.start; msinglevalpats(mpos) = npos
+            case pat: m.Pat.Extract => indexPatsWithExtract(pat, mpos)
             case pat: m.Pat.Var => mvalpatstart += pat.name.pos.start
           })
           // In an Extract pattern `Foo(name) = ...`, let's map the end position of the `fun` field
           // to the `name` position. Compiler desugars it into a getter DefDef and specifically
           // in the case of a single binder sets the position of this getter as an OffsetPosition
           // pointing to "end of fun" rather than the field being extracted.
-          def indexPatsWithExtract(extract: m.Pat.Extract): Unit = extract.args match {
-            case pat :: Nil =>
-              val mpos = extract.fun.pos.end
-              pat.traverse {
-                case pat: m.Pat.Extract => indexPatsWithExtract(pat)
-                case pat: m.Pat.Var =>
-                  val npos = pat.name.pos; mvalpatstart += npos.start; msinglevalpats(mpos) = npos
-              }
-            case pats => indexPats(pats)
-          }
+          def indexPatsWithExtract(extract: m.Pat.Extract, mpos0: Int = -1): Unit =
+            extract.args match {
+              case pat :: Nil =>
+                val mpos = if (mpos0 < 0) extract.fun.pos.end else mpos0
+                pat.traverse {
+                  case pat: m.Pat.Extract => indexPatsWithExtract(pat)
+                  case pat: m.Pat.Var =>
+                    val npos = pat.name.pos; mvalpatstart += npos.start; msinglevalpats(mpos) = npos
+                }
+              case pats => indexPats(pats)
+            }
           override def apply(mtree: m.Tree): Unit = {
             mtree match {
               case mtree: m.Term.Apply => setArgNames(mtree.fun.pos.end :: Nil)(mtree.argClause)
@@ -190,7 +193,8 @@ trait TextDocumentOps {
                 val mpos = mtree.pos; mfuncs.update(mpos.start, mpos)
               case mtree: m.Tree.WithPats => mtree.pats match {
                   case (_: m.Pat.Var) :: Nil =>
-                  case pats => indexPats(pats)
+                  case pats if mtree.parent.exists(_.is[m.Template]) => indexPats(pats)
+                  case pats => indexPats(pats, mtree.pos.start)
                 }
               case _ =>
             }
@@ -354,6 +358,8 @@ trait TextDocumentOps {
                   tryMstart(gstart)
                   tryMstart(gpoint)
                 }
+                if (gpos.isRange) msinglevalpats.get(gstart)
+                  .foreach(addOccurrence(_, gsym, Role.DEFINITION))
               case gtree: g.MemberDef => tryMstart(gpoint)
               case gtree: g.DefTree => tryMstart(gpoint)
               case gtree: g.This

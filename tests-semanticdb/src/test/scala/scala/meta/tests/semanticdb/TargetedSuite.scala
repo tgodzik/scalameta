@@ -311,8 +311,64 @@ class TargetedSuite extends SemanticdbSuite {
         .mkString("", "\n", "\n"),
       expectedCompat
     )
-  }
+  }  
 
+  test("localDeconstruction") {
+    val code = """|class PatternMatching {
+                  |  def localDeconstruction = {
+                  |    val some = Option(123)
+                  |    val Some(number2) =
+                  |      some
+                  |    number2
+                  |    number2
+                  |  }
+                  |}
+                  |""".stripMargin
+    assertEquals(
+      computePayloadFromSnippet(code).linesIterator.drop(3).filter(!_.startsWith("Uri => "))
+        .mkString("", "\n", "\n"),
+      """|Summary:
+         |Schema => SemanticDB v4
+         |Text => non-empty
+         |Language => Scala
+         |Symbols => 6 entries
+         |Occurrences => 10 entries
+         |Synthetics => 1 entries
+         |
+         |Symbols:
+         |_empty_/PatternMatching# => class PatternMatching extends AnyRef { +2 decls }
+         |  AnyRef => scala/AnyRef#
+         |_empty_/PatternMatching#`<init>`(). => primary ctor <init>()
+         |_empty_/PatternMatching#localDeconstruction(). => method localDeconstruction: Int
+         |  Int => scala/Int#
+         |local0 => val local some: Option[Int]
+         |  Option => scala/Option#
+         |  Int => scala/Int#
+         |local1 => val local number2: Int
+         |  Int => scala/Int#
+         |local2 => val local number2: Int
+         |  Int => scala/Int#
+         |
+         |Occurrences:
+         |[0:6..0:21): PatternMatching <= _empty_/PatternMatching#
+         |[0:22..0:22):  <= _empty_/PatternMatching#`<init>`().
+         |[1:6..1:25): localDeconstruction <= _empty_/PatternMatching#localDeconstruction().
+         |[2:8..2:12): some <= local0
+         |[2:15..2:21): Option => scala/Option.
+         |[3:8..3:12): Some => scala/Some.
+         |[3:13..3:20): number2 <= local1
+         |[4:6..4:10): some => local0
+         |[5:4..5:11): number2 => local1
+         |[6:4..6:11): number2 => local1
+         |
+         |Synthetics:
+         |[2:15..2:21): Option => *.apply[Int]
+         |  apply => scala/Option.apply().
+         |  Int => scala/Int#
+         |""".stripMargin
+    )
+  }
+  
   locally { // #3738
     val code = """|trait AmbiguousMend {
                   |  def x
