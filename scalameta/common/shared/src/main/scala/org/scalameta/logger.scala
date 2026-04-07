@@ -1,29 +1,36 @@
 package org.scalameta
 
-class FileLine(val file: sourcecode.File, val line: sourcecode.Line) extends Ordered[FileLine] {
+class FileLine(val fileValue: String, val lineValue: Int) extends Ordered[FileLine] {
+
+  @deprecated("Use the other constructor with raw values", "4.16.0")
+  def this(file: sourcecode.File, line: sourcecode.Line) = this(file.value, line.value)
+  
+  def file = sourcecode.File(fileValue)
+  def line = sourcecode.Line(lineValue)
+  
   override def toString: String = {
-    val shortFilename = file.value.replaceAll("(.*/|\\.scala)", "")
-    Console.GREEN + s"$shortFilename:${line.value}" + Console.RESET
+    val shortFilename = fileValue.replaceAll("(.*/|\\.scala)", "")
+    Console.GREEN + s"$shortFilename:${lineValue}" + Console.RESET
   }
   override def compare(that: FileLine): Int = {
-    val cmp = this.file.value.compareTo(that.file.value)
-    if (cmp != 0) cmp else this.line.value.compare(that.line.value)
+    val cmp = this.fileValue.compareTo(that.fileValue)
+    if (cmp != 0) cmp else this.lineValue.compare(that.lineValue)
   }
   override def equals(obj: Any): Boolean = obj match {
     case that: FileLine => (that eq this) ||
-      line.value == that.line.value && file.value == that.file.value
+      lineValue == that.lineValue && fileValue == that.fileValue
     case _ => false
   }
-  override def hashCode(): Int = file.value.## ^ line.value.##
+  override def hashCode(): Int = fileValue.## ^ lineValue.##
 }
 
 object FileLine {
   implicit def generate(implicit file: sourcecode.File, line: sourcecode.Line): FileLine =
-    new FileLine(file, line)
+    new FileLine(file.value, line.value)
 }
 
 object logger {
-
+  
   /** Same as println except includes the file+line number of call-site. */
   def debug(x: Any)(implicit fileLine: FileLine): Unit = println(s"$fileLine $x")
 
@@ -34,6 +41,7 @@ object logger {
     case ' ' => '∙'
     case ch => ch
   }
+  
 
   /**
    * Prints out the value with and it's source code representation
